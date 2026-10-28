@@ -28,14 +28,17 @@ jobs:
           java-version: '17'
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: |
+          npm install --legacy-peer-deps
+          npx expo install --fix || true
+          find node_modules -name "libs.versions.toml" -exec sed -i "s/1\.9\.24/1.9.25/g" {} + || true
 
       - name: Generate Native Android Project (Expo Prebuild)
         run: |
           npx expo prebuild --platform android --no-install
           echo "" >> android/gradle.properties
           echo "android.kotlinVersion=1.9.25" >> android/gradle.properties
-          sed -i "s/1.9.24/1.9.25/g" android/build.gradle || true
+          sed -i "s/1\.9\.24/1.9.25/g" android/build.gradle || true
 
       - name: Build Standalone Release APK (Self-Contained JS Bundle)
         working-directory: android
