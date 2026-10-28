@@ -1,0 +1,13 @@
+node_modules/
+.expo/
+dist/*.apk
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.env.local
+tests/live-window-proof.png
+tests/android-emulator-verified.png
