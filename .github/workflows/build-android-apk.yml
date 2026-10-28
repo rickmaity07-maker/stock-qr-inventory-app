@@ -31,13 +31,17 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Generate Native Android Project (Expo Prebuild)
-        run: npx expo prebuild --platform android --no-install
+        run: |
+          npx expo prebuild --platform android --no-install
+          echo "" >> android/gradle.properties
+          echo "android.kotlinVersion=1.9.25" >> android/gradle.properties
+          sed -i "s/1.9.24/1.9.25/g" android/build.gradle || true
 
       - name: Build Standalone Release APK (Self-Contained JS Bundle)
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease -x lint -x test --no-daemon
+          ./gradlew assembleRelease -Pandroid.kotlinVersion=1.9.25 -x lint -x test --no-daemon
 
       - name: Rename APK for Direct Phone Download
         run: |
