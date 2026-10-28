@@ -4,15 +4,14 @@
     "slug": "stock-qr-inventory-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "stockqr",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "primaryColor": "#0F766E",
+    "newArchEnabled": false,
+    "primaryColor": "#0D9488",
     "android": {
       "package": "com.stockqr.inventory",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#0F766E"
+        "backgroundColor": "#0D9488"
       },
       "permissions": [
         "android.permission.CAMERA",
@@ -20,16 +19,12 @@
       ]
     },
     "plugins": [
-      "expo-router",
       [
         "expo-camera",
         {
           "cameraPermission": "Allow Stock & QR Inventory to use the camera to scan product QR codes and factory barcodes."
         }
       ]
-    ],
-    "experiments": {
-      "typedRoutes": true
-    }
+    ]
   }
 }
