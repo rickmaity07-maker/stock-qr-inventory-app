@@ -1,7 +1,7 @@
 {
-  "version": "v2.1.0",
-  "releasedAt": "2026-10-29T11:25:00.000Z",
-  "notes": "100% Mobile Phone Store Inventory + All 8 QR Codes Pre-Connected + Live Cloud OTA Sync",
+  "version": "v2.2.0",
+  "releasedAt": "2026-10-29T12:00:00.000Z",
+  "notes": "100% Mobile Phone Store PDF Parity + Live Cross-Device Sync + Over-The-Air Software Updates (No Reinstall Required)",
   "apkDownloadUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/download/v1.0.0/Stock-QR-Inventory.apk",
   "clientDemoApkUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/download/v1.0.0/Stock-QR-Client-Demo-Locked.apk",
   "products": [

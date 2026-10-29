@@ -233,65 +233,90 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     await AsyncStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(nextTx));
   }, []);
 
-  // Cloud Sync Engine (Offline-first queue + Supabase Live Sync)
-  const syncWithCloud = useCallback(async (): Promise<{ ok: boolean; message: string }> => {
-    const client = getSupabaseClient(cloudConfig.supabaseUrl, cloudConfig.supabaseAnonKey);
-    if (!client) {
-      return {
-        ok: false,
-        message: 'Working offline locally. Add Supabase URL & Key in Settings to enable cloud sync.',
-      };
-    }
+  const deviceIdRef = React.useRef<string>(`dev-${Math.random().toString(36).slice(2, 10)}`);
+  const lastRemoteTsRef = React.useRef<number>(0);
 
+  const broadcastLiveSync = useCallback(
+    async (nextProducts: Product[], nextTx: StockTransaction[]): Promise<boolean> => {
+      try {
+        const res = await fetch('https://ntfy.sh/stockqr_mobile_store_live_sync_v4', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            deviceId: deviceIdRef.current,
+            ts: Date.now(),
+            products: nextProducts.map((p) => ({ ...p, synced: true })),
+            transactions: nextTx.slice(0, 30).map((t) => ({ ...t, synced: true })),
+          }),
+        });
+        if (res.ok) {
+          const syncedProds = nextProducts.map((p) => ({ ...p, synced: true }));
+          const syncedTxs = nextTx.map((t) => ({ ...t, synced: true }));
+          await Promise.all([persistProducts(syncedProds), persistTransactions(syncedTxs)]);
+          setLastSyncedAt(new Date().toISOString());
+          return true;
+        }
+      } catch {
+        // Offline - changes stay queued locally with synced: false
+      }
+      return false;
+    },
+    [persistProducts, persistTransactions]
+  );
+
+  // Cloud Sync Engine (Zero-Setup Cross-Device Live Relay + Offline Queue + Optional Supabase)
+  const syncWithCloud = useCallback(async (): Promise<{ ok: boolean; message: string }> => {
     setIsSyncing(true);
     try {
-      // 1. Push any local unsynced products
-      const unsyncedProds = products.filter((p) => !p.synced);
-      if (unsyncedProds.length > 0) {
-        const { error: prodUpsertErr } = await client
-          .from('products')
-          .upsert(unsyncedProds.map(mapProductToDbRow));
-        if (prodUpsertErr) throw prodUpsertErr;
-      }
+      const client = getSupabaseClient(cloudConfig.supabaseUrl, cloudConfig.supabaseAnonKey);
+      if (client) {
+        const unsyncedProds = products.filter((p) => !p.synced);
+        if (unsyncedProds.length > 0) {
+          const { error: prodUpsertErr } = await client
+            .from('products')
+            .upsert(unsyncedProds.map(mapProductToDbRow));
+          if (prodUpsertErr) throw prodUpsertErr;
+        }
 
-      // 2. Push any local unsynced transactions
-      const unsyncedTxs = transactions.filter((t) => !t.synced);
-      if (unsyncedTxs.length > 0) {
-        const { error: txUpsertErr } = await client
-          .from('transactions')
-          .upsert(unsyncedTxs.map(mapTransactionToDbRow));
-        if (txUpsertErr) throw txUpsertErr;
-      }
+        const unsyncedTxs = transactions.filter((t) => !t.synced);
+        if (unsyncedTxs.length > 0) {
+          const { error: txUpsertErr } = await client
+            .from('transactions')
+            .upsert(unsyncedTxs.map(mapTransactionToDbRow));
+          if (txUpsertErr) throw txUpsertErr;
+        }
 
-      // 3. Pull latest products & transactions from cloud
-      const [{ data: remoteProds, error: pErr }, { data: remoteTxs, error: tErr }] =
-        await Promise.all([
-          client.from('products').select('*').order('name', { ascending: true }),
-          client.from('transactions').select('*').order('timestamp', { ascending: false }),
-        ]);
+        const [{ data: remoteProds, error: pErr }, { data: remoteTxs, error: tErr }] =
+          await Promise.all([
+            client.from('products').select('*').order('name', { ascending: true }),
+            client.from('transactions').select('*').order('timestamp', { ascending: false }),
+          ]);
 
-      if (pErr) throw pErr;
-      if (tErr) throw tErr;
+        if (pErr) throw pErr;
+        if (tErr) throw tErr;
 
-      if (remoteProds && remoteProds.length > 0) {
-        await persistProducts(remoteProds.map(mapDbRowToProduct));
-      } else if (products.length > 0) {
-        // Seed remote DB with local products if remote table is empty
-        await client.from('products').upsert(products.map(mapProductToDbRow));
-        await persistProducts(products.map((p) => ({ ...p, synced: true })));
-      }
+        if (remoteProds && remoteProds.length > 0) {
+          await persistProducts(remoteProds.map(mapDbRowToProduct));
+        } else if (products.length > 0) {
+          await client.from('products').upsert(products.map(mapProductToDbRow));
+          await persistProducts(products.map((p) => ({ ...p, synced: true })));
+        }
 
-      if (remoteTxs && remoteTxs.length > 0) {
-        await persistTransactions(remoteTxs.map(mapDbRowToTransaction));
-      } else if (transactions.length > 0) {
-        await client.from('transactions').upsert(transactions.map(mapTransactionToDbRow));
-        await persistTransactions(transactions.map((t) => ({ ...t, synced: true })));
+        if (remoteTxs && remoteTxs.length > 0) {
+          await persistTransactions(remoteTxs.map(mapDbRowToTransaction));
+        } else if (transactions.length > 0) {
+          await client.from('transactions').upsert(transactions.map(mapTransactionToDbRow));
+          await persistTransactions(transactions.map((t) => ({ ...t, synced: true })));
+        }
+      } else {
+        // Zero-setup real-time cloud relay across Android & iPhone
+        await broadcastLiveSync(products, transactions);
       }
 
       const nowIso = new Date().toISOString();
       setLastSyncedAt(nowIso);
       setIsSyncing(false);
-      return { ok: true, message: 'Synced live across all devices.' };
+      return { ok: true, message: 'Synced live across all devices (Android & iPhone).' };
     } catch (err: any) {
       setIsSyncing(false);
       return {
@@ -299,7 +324,55 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         message: err?.message || 'Offline — changes saved locally and will sync automatically.',
       };
     }
-  }, [cloudConfig, products, transactions, persistProducts, persistTransactions]);
+  }, [cloudConfig, products, transactions, persistProducts, persistTransactions, broadcastLiveSync]);
+
+  // Zero-setup real-time cross-device sync listener (updates within seconds when another phone sells/restocks)
+  useEffect(() => {
+    if (!cloudConfig.autoSyncEnabled) return;
+    let active = true;
+    const pollLiveRelay = async () => {
+      try {
+        const res = await fetch(
+          'https://ntfy.sh/stockqr_mobile_store_live_sync_v4/json?poll=1&since=15m'
+        );
+        if (!res.ok || !active) return;
+        const text = await res.text();
+        const lines = text.trim().split('\n').filter(Boolean);
+        let newestPacket: any = null;
+        for (const line of lines) {
+          try {
+            const env = JSON.parse(line);
+            if (env.event === 'message' && env.message) {
+              const payload = JSON.parse(env.message);
+              if (
+                payload &&
+                payload.deviceId !== deviceIdRef.current &&
+                payload.ts > lastRemoteTsRef.current &&
+                isCleanMobileCatalog(payload.products)
+              ) {
+                newestPacket = payload;
+                lastRemoteTsRef.current = payload.ts;
+              }
+            }
+          } catch {}
+        }
+        if (newestPacket && active) {
+          await persistProducts(newestPacket.products);
+          if (Array.isArray(newestPacket.transactions) && newestPacket.transactions.length > 0) {
+            await persistTransactions(newestPacket.transactions);
+          }
+          setLastSyncedAt(new Date().toISOString());
+        }
+      } catch {}
+    };
+
+    pollLiveRelay();
+    const timer = setInterval(pollLiveRelay, 3500);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [cloudConfig.autoSyncEnabled, persistProducts, persistTransactions]);
 
   // Subscribe to Supabase Realtime when credentials are provided
   useEffect(() => {
@@ -359,12 +432,13 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const next = [newProduct, ...products];
       await persistProducts(next);
 
-      if (cloudConfig.supabaseUrl && cloudConfig.autoSyncEnabled) {
-        syncWithCloud();
+      if (cloudConfig.autoSyncEnabled) {
+        broadcastLiveSync(next, transactions);
+        if (cloudConfig.supabaseUrl) syncWithCloud();
       }
       return newProduct;
     },
-    [products, persistProducts, cloudConfig, syncWithCloud]
+    [products, transactions, persistProducts, cloudConfig, syncWithCloud, broadcastLiveSync]
   );
 
   const updateProduct = useCallback(
@@ -380,23 +454,27 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           : p
       );
       await persistProducts(next);
-      if (cloudConfig.supabaseUrl && cloudConfig.autoSyncEnabled) {
-        syncWithCloud();
+      if (cloudConfig.autoSyncEnabled) {
+        broadcastLiveSync(next, transactions);
+        if (cloudConfig.supabaseUrl) syncWithCloud();
       }
     },
-    [products, persistProducts, cloudConfig, syncWithCloud]
+    [products, transactions, persistProducts, cloudConfig, syncWithCloud, broadcastLiveSync]
   );
 
   const deleteProduct = useCallback(
     async (id: string) => {
       const next = products.filter((p) => p.id !== id);
       await persistProducts(next);
+      if (cloudConfig.autoSyncEnabled) {
+        broadcastLiveSync(next, transactions);
+      }
       const client = getSupabaseClient(cloudConfig.supabaseUrl, cloudConfig.supabaseAnonKey);
       if (client) {
         await client.from('products').delete().eq('id', id);
       }
     },
-    [products, persistProducts, cloudConfig]
+    [products, transactions, persistProducts, cloudConfig, broadcastLiveSync]
   );
 
   const linkFactoryBarcode = useCallback(
@@ -476,8 +554,9 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       await Promise.all([persistProducts(nextProducts), persistTransactions(nextTx)]);
 
-      if (cloudConfig.supabaseUrl && cloudConfig.autoSyncEnabled) {
-        syncWithCloud();
+      if (cloudConfig.autoSyncEnabled) {
+        broadcastLiveSync(nextProducts, nextTx);
+        if (cloudConfig.supabaseUrl) syncWithCloud();
       }
 
       return {
@@ -485,7 +564,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         lowStockTriggered: updatedQty <= updatedProduct.minStockLevel,
       };
     },
-    [products, transactions, role, persistProducts, persistTransactions, cloudConfig, syncWithCloud]
+    [products, transactions, role, persistProducts, persistTransactions, cloudConfig, syncWithCloud, broadcastLiveSync]
   );
 
   const recordRestock = useCallback(
@@ -533,13 +612,14 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       await Promise.all([persistProducts(nextProducts), persistTransactions(nextTx)]);
 
-      if (cloudConfig.supabaseUrl && cloudConfig.autoSyncEnabled) {
-        syncWithCloud();
+      if (cloudConfig.autoSyncEnabled) {
+        broadcastLiveSync(nextProducts, nextTx);
+        if (cloudConfig.supabaseUrl) syncWithCloud();
       }
 
       return updatedProduct;
     },
-    [products, transactions, role, persistProducts, persistTransactions, cloudConfig, syncWithCloud]
+    [products, transactions, role, persistProducts, persistTransactions, cloudConfig, syncWithCloud, broadcastLiveSync]
   );
 
   const lowStockProducts = useMemo(

@@ -194,10 +194,12 @@ export default function ProductsScreen() {
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
-          <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.addBtnText}>Add Product</Text>
-        </TouchableOpacity>
+        {role === 'OWNER' && (
+          <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
+            <Ionicons name="add" size={20} color="#FFFFFF" />
+            <Text style={styles.addBtnText}>Add Product</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* CATEGORY CHIPS */}
@@ -294,21 +296,23 @@ export default function ProductsScreen() {
                   <Text style={styles.actionBtnPrimaryText}>QR & Label Print</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.actionBtnSecondary}
-                  onPress={() => openEditModal(product)}
-                >
-                  <Ionicons name="create-outline" size={16} color="#334155" />
-                  <Text style={styles.actionBtnSecondaryText}>Edit</Text>
-                </TouchableOpacity>
-
                 {role === 'OWNER' && (
-                  <TouchableOpacity
-                    style={styles.actionBtnDanger}
-                    onPress={() => handleDeleteProduct(product)}
-                  >
-                    <Ionicons name="trash-outline" size={16} color="#DC2626" />
-                  </TouchableOpacity>
+                  <>
+                    <TouchableOpacity
+                      style={styles.actionBtnSecondary}
+                      onPress={() => openEditModal(product)}
+                    >
+                      <Ionicons name="create-outline" size={16} color="#334155" />
+                      <Text style={styles.actionBtnSecondaryText}>Edit</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.actionBtnDanger}
+                      onPress={() => handleDeleteProduct(product)}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                    </TouchableOpacity>
+                  </>
                 )}
               </View>
             </View>
