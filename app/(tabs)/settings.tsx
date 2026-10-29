@@ -9,14 +9,15 @@ import {
   Switch,
   Alert,
   Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
+import * as FileSystem from 'expo-file-system';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { useInventory, MASTER_LICENSE_KEY } from '../../src/context/InventoryContext';
 
-export const APP_VERSION = 'v2.1.0';
-const DIRECT_APK_UPDATE_URL =
-  'https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/download/v1.0.0/Stock-QR-Inventory.apk';
+export const APP_VERSION = 'v2.3.0';
 const CLIENT_LOCKED_DEMO_WEB_URL =
   'https://rickmaity07-maker.github.io/stock-qr-inventory-app/client-demo.html';
 
@@ -48,10 +49,8 @@ export default function SettingsScreen() {
   const [autoSync, setAutoSync] = useState<boolean>(cloudConfig.autoSyncEnabled);
   const [checkingOta, setCheckingOta] = useState<boolean>(false);
   const [otaProgress, setOtaProgress] = useState<number>(0);
-  const [otaStatusText, setOtaStatusText] = useState<string>(
-    'Automatic Over-The-Air (OTA) updates active — updates install in-place without reinstalling.'
-  );
-  const [latestOnlineTag, setLatestOnlineTag] = useState<string | null>('v2.2.0');
+  const [otaStatusText, setOtaStatusText] = useState<string>('Check GitHub for the latest app version. Android will ask you to approve the install.');
+  const [latestOnlineTag, setLatestOnlineTag] = useState<string | null>(null);
 
   const handleUnlockOwner = async () => {
     if (isClientDemoLocked) {
@@ -130,14 +129,51 @@ export default function SettingsScreen() {
     try {
       await new Promise((r) => setTimeout(r, 350));
       setOtaProgress(55);
-      setOtaStatusText('Downloading Over-The-Air delta patch (18.4 KB)...');
+      setOtaStatusText('Checking the latest app version on GitHub...');
 
       // 1. Pull & apply live Mobile Store delta patch & QR connections in-place
       const liveRes = await pullOnlineUpdateFromGitHub();
       setLatestOnlineTag(liveRes.version);
 
+      const versionParts = (version: string) =>
+        version.replace(/^v/i, '').split('.').map((part) => Number(part) || 0);
+      const latestParts = versionParts(liveRes.version);
+      const installedParts = versionParts(APP_VERSION);
+      let isNewerVersion = false;
+      for (let index = 0; index < Math.max(latestParts.length, installedParts.length); index += 1) {
+        const latestPart = latestParts[index] || 0;
+        const installedPart = installedParts[index] || 0;
+        if (latestPart !== installedPart) {
+          isNewerVersion = latestPart > installedPart;
+          break;
+        }
+      }
+
+      if (Platform.OS === 'android' && isNewerVersion) {
+        setOtaProgress(68);
+        setOtaStatusText(`Downloading ${liveRes.version} from GitHub...`);
+        const apkDirectory = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+        if (!apkDirectory) throw new Error('No local storage available for the APK download.');
+        const apkUri = `${apkDirectory}stock-qr-inventory-${liveRes.version}.apk`;
+        const download = await FileSystem.downloadAsync(liveRes.apkUrl, apkUri);
+        if (download.status < 200 || download.status >= 300) {
+          throw new Error(`APK download failed with HTTP ${download.status}`);
+        }
+        const contentUri = await FileSystem.getContentUriAsync(download.uri);
+        setOtaProgress(95);
+        setOtaStatusText('Opening Android installer...');
+        await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.VIEW, {
+          data: contentUri,
+          type: 'application/vnd.android.package-archive',
+          flags: 1,
+        });
+        setOtaProgress(100);
+        setOtaStatusText(`Downloaded ${liveRes.version}. Approve the Android prompt to install.`);
+        return;
+      }
+
       setOtaProgress(88);
-      setOtaStatusText('Applying software update in-place (no reinstall needed)...');
+      setOtaStatusText('Checking for any configured Expo app update...');
       await new Promise((r) => setTimeout(r, 350));
 
       // 2. Also check Expo Over-The-Air (OTA) bundle updates if running in EAS
@@ -155,16 +191,12 @@ export default function SettingsScreen() {
       }
 
       setOtaProgress(100);
-      setOtaStatusText(
-        `✓ Software Up to Date (${liveRes.version}) — Applied Over-The-Air without reinstalling.`
-      );
-      Alert.alert(
-        `✓ Over-The-Air Software Update Complete (${liveRes.version})`,
-        `${liveRes.notes}\n\nYour app updated itself in-place over the air (just like a phone software update) without downloading or reinstalling the APK.`
-      );
+      setOtaStatusText(`App is up to date (${liveRes.version}).`);
+      Alert.alert('App is up to date', `${liveRes.version}\n\n${liveRes.notes}`);
     } catch (err: any) {
       setOtaProgress(100);
-      setOtaStatusText('✓ Software Up to Date — Over-The-Air engine active.');
+      setOtaStatusText('Could not check for updates. Try again when online.');
+      Alert.alert('Update unavailable', err?.message || 'Could not download the update. Please try again.');
     } finally {
       setCheckingOta(false);
     }
@@ -240,17 +272,17 @@ export default function SettingsScreen() {
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
           <Ionicons name="cloud-done-outline" size={20} color="#007AFF" />
-          <Text style={styles.cardTitle}>Automatic App Updates (Over-The-Air)</Text>
+          <Text style={styles.cardTitle}>Install App Update</Text>
         </View>
         <Text style={styles.cardDesc}>
-          Fixes and improvements are delivered over the air, so the app updates itself in-place without downloading or reinstalling the APK. Installed Software: {latestOnlineTag || APP_VERSION}.
+          Android downloads the latest signed APK from GitHub and opens the system installer. Approve the Android prompt to finish. Installed: {APP_VERSION} · Latest: {latestOnlineTag || 'Not checked'}.
         </Text>
 
         <View
           style={{
             backgroundColor: '#EAF3FF',
             borderWidth: 1,
-            borderColor: '#99F6E4',
+            borderColor: '#BFDBFE',
             borderRadius: 10,
             padding: 10,
             marginBottom: 10,
@@ -263,7 +295,7 @@ export default function SettingsScreen() {
             <View
               style={{
                 height: 6,
-                backgroundColor: '#CCFBF1',
+                backgroundColor: '#DBEAFE',
                 borderRadius: 3,
                 marginTop: 8,
                 overflow: 'hidden',
@@ -288,8 +320,8 @@ export default function SettingsScreen() {
           <Ionicons name="sparkles-outline" size={18} color="#FFFFFF" />
           <Text style={styles.primaryBtnText}>
             {checkingOta
-              ? 'Installing Over-The-Air Update...'
-              : 'Check & Install Software Update (OTA)'}
+              ? 'Checking for App Update...'
+              : 'Check & Install App Update'}
           </Text>
         </TouchableOpacity>
 
