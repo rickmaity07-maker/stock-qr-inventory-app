@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#090E1A" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Mobile QR" />
+  <title>Mobile Store QR Studio (iPhone & Android)</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      background: #F4F7FB;
+      color: #0F172A;
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      overflow: hidden;
+      padding-top: env(safe-area-inset-top);
+    }
+    header {
+      background: linear-gradient(180deg, #090E1A 0%, #0F172A 100%);
+      color: #FFF;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    }
+    .brand-row { display: flex; align-items: center; gap: 10px; }
+    .brand-icon {
+      width: 32px; height: 32px; border-radius: 10px;
+      background: linear-gradient(135deg, #14B8A6, #0F766E);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 13px; color: #FFF;
+    }
+    .header-title { font-size: 16px; font-weight: 800; }
+    .header-badges { display: flex; gap: 6px; align-items: center; }
+    .badge { font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 99px; }
+    .badge-sync { background: rgba(16, 185, 129, 0.18); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.3); }
+    .badge-owner { background: linear-gradient(135deg, #0D9488, #0F766E); color: #FFF; }
+    .badge-staff { background: linear-gradient(135deg, #2563EB, #1D4ED8); color: #FFF; }
+
+    .ios-install-banner {
+      background: linear-gradient(90deg, #0F172A, #1E293B);
+      color: #F8FAFC;
+      padding: 9px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #334155;
+    }
+    .ios-install-banner strong { color: #2DD4BF; }
+    .ios-dismiss {
+      background: rgba(255,255,255,0.12);
+      color: #FFF;
+      border: none;
+      border-radius: 99px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    main { flex: 1; overflow-y: auto; padding: 14px; max-width: 600px; width: 100%; margin: 0 auto; }
+    .segmented { display: flex; background: #E2E8F0; border-radius: 14px; padding: 4px; gap: 4px; }
+    .seg-btn { flex: 1; border: none; padding: 10px; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; background: transparent; color: #475569; }
+    .seg-btn.active-SELL { background: linear-gradient(135deg, #0D9488, #0F766E); color: #FFF; }
+    .seg-btn.active-RESTOCK { background: linear-gradient(135deg, #2563EB, #1D4ED8); color: #FFF; }
+    .seg-btn.active-INFO { background: linear-gradient(135deg, #D97706, #B45309); color: #FFF; }
+    #active-mode-banner { font-size: 12px; font-weight: 800; margin: 10px 0; padding: 9px 12px; border-radius: 10px; background: #F0FDFA; color: #0F766E; border: 1px solid #99F6E4; }
+
+    .camera-box {
+      height: 165px;
+      background: radial-gradient(circle at center, #1E293B 0%, #090E1A 100%);
+      border-radius: 18px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      border: 1.5px solid #334155;
+      overflow: hidden;
+    }
+    #live-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+    .reticle {
+      width: 110px; height: 110px;
+      border: 2px solid rgba(20, 184, 166, 0.8);
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      color: #CCFBF1; font-size: 11px; font-weight: 700; text-align: center; padding: 8px;
+      position: relative; z-index: 2; background: rgba(9, 14, 26, 0.35);
+    }
+    .camera-btn {
+      position: absolute;
+      bottom: 8px;
+      right: 10px;
+      z-index: 5;
+      background: rgba(13, 148, 136, 0.92);
+      color: #FFF;
+      border: none;
+      border-radius: 99px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .laser-line {
+      position: absolute; left: 8px; right: 8px; height: 2px;
+      background: linear-gradient(90deg, transparent, #2DD4BF, #10B981, transparent);
+      box-shadow: 0 0 10px #2DD4BF;
+      animation: laserSweep 2.2s infinite ease-in-out;
+    }
+    @keyframes laserSweep { 0%, 100% { top: 14px; } 50% { top: 86px; } }
+
+    .card {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+    }
+    .prod-row { display: flex; justify-content: space-between; align-items: center; cursor: pointer; gap: 10px; }
+    .prod-name { font-weight: 800; font-size: 14px; color: #0F172A; }
+    .prod-sub { font-size: 11.5px; color: #64748B; margin-top: 3px; font-weight: 600; }
+    .mono-code { font-family: monospace; font-size: 11px; color: #0F766E; font-weight: 700; }
+    .stock-pill { font-size: 11px; font-weight: 800; padding: 5px 10px; border-radius: 99px; background: #F0FDFA; color: #0F766E; border: 1px solid #99F6E4; white-space: nowrap; }
+    .stock-pill.low { background: #FEF2F2; color: #DC2626; border-color: #FECACA; }
+
+    nav.bottom-tabs {
+      display: flex; background: #FFFFFF; border-top: 1px solid #E2E8F0;
+      height: 68px; padding-bottom: env(safe-area-inset-bottom);
+    }
+    nav button { flex: 1; border: none; background: transparent; font-size: 11px; font-weight: 800; color: #64748B; cursor: pointer; }
+    nav button.active { color: #0D9488; border-top: 3px solid #0D9488; background: #F0FDFA; }
+
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(9, 14, 26, 0.72); display: none; align-items: flex-end; justify-content: center; z-index: 50; }
+    .modal-backdrop.open { display: flex; }
+    .modal-sheet { background: #FFFFFF; width: 100%; max-width: 600px; border-radius: 24px 24px 0 0; padding: 20px; max-height: 88dvh; overflow-y: auto; }
+    input { width: 100%; height: 44px; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 0 12px; margin: 6px 0 12px; font-size: 14px; font-weight: 600; }
+    .btn-primary { width: 100%; background: linear-gradient(135deg, #0D9488, #0F766E); color: #FFF; border: none; padding: 13px 16px; border-radius: 99px; font-weight: 800; cursor: pointer; font-size: 14px; }
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .kpi-box { background: linear-gradient(135deg, #0D9488, #065F46); color: #FFF; padding: 16px; border-radius: 16px; }
+    .kpi-val { font-size: 24px; font-weight: 900; margin-top: 4px; }
+    .theme-pills-row { display: flex; gap: 6px; justify-content: center; margin: 8px 0 12px; }
+    .theme-pill { font-size: 11px; font-weight: 800; padding: 6px 12px; border-radius: 99px; border: 1px solid #CBD5E1; background: #F8FAFC; cursor: pointer; }
+    .theme-pill.active { background: #0F172A; color: #FFFFFF; border-color: #0F172A; }
+    .designer-sticker-shell { padding: 6px; border-radius: 22px; background: linear-gradient(135deg, #0D9488, #0F172A); margin-bottom: 12px; }
+    .designer-sticker-core { background: #FFFFFF; border-radius: 17px; padding: 14px; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand-row">
+      <div class="brand-icon">QR</div>
+      <div class="header-title">Mobile Store QR Studio</div>
+    </div>
+    <div class="header-badges">
+      <span class="badge badge-sync">● iOS & Offline Ready</span>
+      <span id="role-badge" class="badge badge-owner">OWNER</span>
+    </div>
+  </header>
+
+  <div id="ios-hint-bar" class="ios-install-banner">
+    <span>📲 <strong>Install on iPhone:</strong> Tap Safari <strong>Share (↑)</strong> → <strong>Add to Home Screen</strong></span>
+    <button class="ios-dismiss" onclick="document.getElementById('ios-hint-bar').style.display='none'">Got it</button>
+  </div>
+
+  <main id="screen-container"></main>
+
+  <div id="scan-modal" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <strong id="modal-title" style="font-size:16px;font-weight:800;">Action</strong>
+        <button onclick="closeModal()" style="border:none;background:#F1F5F9;width:32px;height:32px;border-radius:16px;font-size:16px;cursor:pointer;font-weight:800;">✕</button>
+      </div>
+      <div id="modal-body" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <nav class="bottom-tabs">
+    <button data-testid="tab-scan" class="active" onclick="switchTab('scan')">Scanner</button>
+    <button data-testid="tab-products" onclick="switchTab('products')">Phones & QR</button>
+    <button data-testid="tab-stock" onclick="switchTab('stock')">Alerts</button>
+    <button data-testid="tab-dashboard" onclick="switchTab('dashboard')">Profit</button>
+    <button data-testid="tab-settings" onclick="switchTab('settings')">Roles & Lock</button>
+  </nav>
+
+  <script>
+    if (window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches) {
+      const hint = document.getElementById('ios-hint-bar');
+      if (hint) hint.style.display = 'none';
+    }
+
+    const STORAGE_KEY = 'stock_qr_mobile_store_ios_v2';
+    const QR_THEMES = {
+      EMERALD: { name: 'Emerald Boutique', primary: '#0F172A', accent: '#0D9488' },
+      GOLD: { name: 'Royal Gold', primary: '#1E1B4B', accent: '#D97706' },
+      OBSIDIAN: { name: 'Obsidian Pro', primary: '#090E1A', accent: '#2563EB' }
+    };
+
+    const defaultState = {
+      tab: 'scan',
+      scannerMode: 'SELL',
+      role: 'OWNER',
+      ownerPin: '1234',
+      qrTheme: 'EMERALD',
+      selectedProduct: null,
+      products: [
+        { id: 'prod-1', name: 'iPhone 16 Pro Max 256GB (Natural Titanium)', category: 'Smartphones', qrCode: 'STK-IP16-1001', buyingPrice: 890.00, sellingPrice: 1149.00, quantity: 9, minStockLevel: 4, expiryDate: '2027-10-15' },
+        { id: 'prod-2', name: 'Samsung Galaxy S24 Ultra 512GB (Titanium Gray)', category: 'Smartphones', qrCode: 'STK-S24U-1002', buyingPrice: 780.00, sellingPrice: 1049.00, quantity: 2, minStockLevel: 5, expiryDate: '2027-09-30' },
+        { id: 'prod-3', name: 'Apple 20W USB-C Fast Power Adapter (Original)', category: 'Chargers & Cables', qrCode: 'STK-AP20-1003', buyingPrice: 9.50, sellingPrice: 19.99, quantity: 6, minStockLevel: 10, expiryDate: '2026-11-05' },
+        { id: 'prod-4', name: 'AirPods Pro (2nd Gen) MagSafe USB-C', category: 'Audio & Earbuds', qrCode: 'STK-AIRP-1004', buyingPrice: 155.00, sellingPrice: 219.00, quantity: 14, minStockLevel: 5, expiryDate: '2027-08-20' },
+        { id: 'prod-5', name: '9H Privacy Tempered Glass (iPhone 15/16 Pro Max)', category: 'Screen Protectors', qrCode: 'STK-GLAS-1005', buyingPrice: 1.80, sellingPrice: 12.99, quantity: 3, minStockLevel: 15, expiryDate: '2026-11-01' },
+        { id: 'prod-6', name: 'Anker MagGo 10,000mAh Qi2 Magnetic Power Bank', category: 'Power Banks', qrCode: 'STK-ANKR-1006', buyingPrice: 28.00, sellingPrice: 54.99, quantity: 12, minStockLevel: 5, expiryDate: '2027-05-10' }
+      ],
+      transactions: [
+        { id: 'tx-1', productId: 'prod-1', productName: 'iPhone 16 Pro Max 256GB (Natural Titanium)', type: 'SALE', quantity: 5, unitBuyingPrice: 890.00, unitSellingPrice: 1149.00, timestamp: '2026-10-27' },
+        { id: 'tx-2', productId: 'prod-2', productName: 'Samsung Galaxy S24 Ultra 512GB (Titanium Gray)', type: 'SALE', quantity: 4, unitBuyingPrice: 780.00, unitSellingPrice: 1049.00, timestamp: '2026-10-25' },
+        { id: 'tx-3', productId: 'prod-4', productName: 'AirPods Pro (2nd Gen) MagSafe USB-C', type: 'SALE', quantity: 9, unitBuyingPrice: 155.00, unitSellingPrice: 219.00, timestamp: '2026-10-21' }
+      ]
+    };
+
+    let state = defaultState;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) state = { ...defaultState, ...JSON.parse(saved) };
+    } catch {}
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          products: state.products,
+          transactions: state.transactions,
+          role: state.role,
+          ownerPin: state.ownerPin,
+          qrTheme: state.qrTheme
+        }));
+      } catch {}
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = String(str ?? '');
+      return div.innerHTML;
+    }
+
+    async function startLiveCamera() {
+      const video = document.getElementById('live-video');
+      if (!video || !navigator.mediaDevices?.getUserMedia) {
+        alert('Camera access requires HTTPS in Safari.');
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        video.srcObject = stream;
+        video.style.display = 'block';
+        await video.play();
+      } catch (e) {
+        alert('Please allow Camera access in iPhone Safari settings, or tap any product below to scan.');
+      }
+    }
+
+    function makeDesignerQrSvg(qrValue, sizePx = 56, themeKey = state.qrTheme) {
+      const theme = QR_THEMES[themeKey] || QR_THEMES.EMERALD;
+      const primaryColor = theme.primary;
+      const accentColor = theme.accent;
+      const gridSize = 21;
+      const cell = sizePx / gridSize;
+      const isFinderZone = (r, c) => (r < 7 && c < 7) || (r < 7 && c >= gridSize - 7) || (r >= gridSize - 7 && c < 7);
+      const isCenterLogoZone = (r, c) => r >= 8 && r <= 12 && c >= 8 && c <= 12;
+
+      let hash = 2166136261;
+      for (let i = 0; i < qrValue.length; i++) {
+        hash ^= qrValue.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+
+      let dots = '';
+      for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+          if (isFinderZone(r, c) || isCenterLogoZone(r, c)) continue;
+          const charCode = qrValue.charCodeAt((r * gridSize + c) % Math.max(1, qrValue.length));
+          if (((charCode * 17 + r * 31 + c * 13 + (hash & 0xff)) % 10) < 5) {
+            const cx = (c + 0.5) * cell;
+            const cy = (r + 0.5) * cell;
+            const fill = (r + c) % 4 === 0 ? accentColor : primaryColor;
+            dots += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(cell * 0.42).toFixed(1)}" fill="${fill}" />`;
+          }
+        }
+      }
+
+      const renderFinderEye = (startR, startC) => {
+        const x = startC * cell;
+        const y = startR * cell;
+        const outer = 7 * cell;
+        const inner = 3 * cell;
+        return `
+          <rect x="${(x + cell * 0.4).toFixed(1)}" y="${(y + cell * 0.4).toFixed(1)}" width="${(outer - cell * 0.8).toFixed(1)}" height="${(outer - cell * 0.8).toFixed(1)}" rx="${(cell * 1.9).toFixed(1)}" fill="none" stroke="${primaryColor}" stroke-width="${(cell * 0.95).toFixed(1)}" />
+          <rect x="${(x + 2 * cell).toFixed(1)}" y="${(y + 2 * cell).toFixed(1)}" width="${inner.toFixed(1)}" height="${inner.toFixed(1)}" rx="${(cell * 0.95).toFixed(1)}" fill="${accentColor}" />
+        `;
+      };
+
+      const centerPos = 8.1 * cell;
+      const centerSize = 4.8 * cell;
+      return `
+        <svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${sizePx} ${sizePx}" style="display:block;margin:0 auto;background:#FFF;border-radius:${(sizePx * 0.12).toFixed(1)}px;padding:2px;">
+          <rect width="${sizePx}" height="${sizePx}" rx="${(sizePx * 0.1).toFixed(1)}" fill="#FFFFFF"/>
+          ${renderFinderEye(0, 0)}
+          ${renderFinderEye(0, gridSize - 7)}
+          ${renderFinderEye(gridSize - 7, 0)}
+          ${dots}
+          <rect x="${centerPos.toFixed(1)}" y="${centerPos.toFixed(1)}" width="${centerSize.toFixed(1)}" height="${centerSize.toFixed(1)}" rx="${(cell * 1.3).toFixed(1)}" fill="${accentColor}" stroke="#FFFFFF" stroke-width="${(cell * 0.45).toFixed(1)}"/>
+          <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#FFFFFF" font-weight="900" font-size="${(cell * 1.65).toFixed(1)}">QR</text>
+        </svg>
+      `;
+    }
+
+    function setMode(mode) { state.scannerMode = mode; render(); }
+    function switchTab(tab) {
+      state.tab = tab;
+      document.querySelectorAll('nav.bottom-tabs button').forEach(b => b.classList.remove('active'));
+      const btn = document.querySelector(`[data-testid="tab-${tab}"]`);
+      if (btn) btn.classList.add('active');
+      render();
+    }
+    function setQrTheme(themeKey, prodId) { state.qrTheme = themeKey; saveState(); openQrPrintModal(prodId); render(); }
+
+    function openQrPrintModal(prodId) {
+      const prod = state.products.find(p => p.id === prodId) || state.products[0];
+      const modal = document.getElementById('scan-modal');
+      document.getElementById('modal-title').textContent = `Designer QR Studio — ${prod.name}`;
+      document.getElementById('modal-body').innerHTML = `
+        <div class="theme-pills-row">
+          <button class="theme-pill ${state.qrTheme === 'EMERALD' ? 'active' : ''}" onclick="setQrTheme('EMERALD', '${prod.id}')">Emerald Boutique</button>
+          <button class="theme-pill ${state.qrTheme === 'GOLD' ? 'active' : ''}" onclick="setQrTheme('GOLD', '${prod.id}')">Royal Gold</button>
+          <button class="theme-pill ${state.qrTheme === 'OBSIDIAN' ? 'active' : ''}" onclick="setQrTheme('OBSIDIAN', '${prod.id}')">Obsidian Pro</button>
+        </div>
+        <div class="designer-sticker-shell">
+          <div class="designer-sticker-core">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:10px;font-weight:800;color:#0D9488;background:#F0FDFA;padding:2px 8px;border-radius:99px;">${escapeHtml(prod.category || 'STOCK')}</span>
+              <span style="font-size:13px;font-weight:900;background:#0F172A;color:#FFF;padding:2px 10px;border-radius:99px;">£${prod.sellingPrice.toFixed(2)}</span>
+            </div>
+            <div style="font-weight:900;font-size:14px;margin-bottom:8px;">${escapeHtml(prod.name)}</div>
+            ${makeDesignerQrSvg(prod.qrCode, 130, state.qrTheme)}
+            <div style="margin-top:8px;font-family:monospace;font-size:12px;font-weight:700;">${escapeHtml(prod.qrCode)}</div>
+          </div>
+        </div>
+        <button class="btn-primary" onclick="window.print()">🖨 AirPrint Single Label or A4 Sheet</button>
+      `;
+      modal.classList.add('open');
+    }
+
+    function openScanModal(prodId) {
+      const prod = state.products.find(p => p.id === prodId);
+      if (!prod) return;
+      state.selectedProduct = prod;
+      const modal = document.getElementById('scan-modal');
+      document.getElementById('modal-title').textContent = `${state.scannerMode} — ${prod.name}`;
+      const body = document.getElementById('modal-body');
+
+      if (state.scannerMode === 'SELL') {
+        body.innerHTML = `
+          <label style="font-size:12px;font-weight:800;">Quantity Sold (Defaults to 1)</label>
+          <input id="scan-qty-input" type="number" value="1" min="1" />
+          <button class="btn-primary" onclick="confirmScanAction()">Confirm Sale (-Stock & Save Sale)</button>
+        `;
+      } else if (state.scannerMode === 'RESTOCK') {
+        body.innerHTML = `
+          <label style="font-size:12px;font-weight:800;">Incoming Restock Quantity</label>
+          <input id="scan-qty-input" type="number" value="10" min="1" />
+          <label style="font-size:12px;font-weight:800;">Unit Buying Price (£)</label>
+          <input id="scan-buy-price-input" type="number" step="0.01" value="${prod.buyingPrice.toFixed(2)}" />
+          <button class="btn-primary" style="background:linear-gradient(135deg,#2563EB,#1D4ED8)" onclick="confirmScanAction()">Confirm Restock (+Stock)</button>
+        `;
+      } else {
+        body.innerHTML = `
+          <div style="text-align:center;font-size:13px;line-height:1.6;">
+            ${makeDesignerQrSvg(prod.qrCode, 110, state.qrTheme)}
+            <p><strong>QR Code:</strong> <span class="mono-code">${escapeHtml(prod.qrCode)}</span></p>
+            <p><strong>Live Stock:</strong> ${prod.quantity} units (Min Alert: ${prod.minStockLevel})</p>
+            <p><strong>Selling Price:</strong> £${prod.sellingPrice.toFixed(2)}</p>
+          </div>
+        `;
+      }
+      modal.classList.add('open');
+    }
+
+    function closeModal() { document.getElementById('scan-modal').classList.remove('open'); state.selectedProduct = null; }
+
+    function confirmScanAction() {
+      const prod = state.selectedProduct;
+      if (!prod) return;
+      const qty = Math.max(1, parseInt(document.getElementById('scan-qty-input').value, 10) || 1);
+      if (state.scannerMode === 'SELL') {
+        prod.quantity = Math.max(0, prod.quantity - qty);
+        state.transactions.unshift({
+          id: 'tx-' + Date.now(),
+          productId: prod.id,
+          productName: prod.name,
+          type: 'SALE',
+          quantity: qty,
+          unitBuyingPrice: prod.buyingPrice,
+          unitSellingPrice: prod.sellingPrice,
+          timestamp: new Date().toISOString().slice(0, 10)
+        });
+      } else if (state.scannerMode === 'RESTOCK') {
+        const buyInput = parseFloat(document.getElementById('scan-buy-price-input').value);
+        prod.quantity += qty;
+        if (!isNaN(buyInput) && buyInput >= 0) prod.buyingPrice = buyInput;
+      }
+      saveState();
+      closeModal();
+      render();
+    }
+
+    function addNewProduct() {
+      const name = (document.getElementById('new-product-name')?.value || '').trim();
+      const buy = parseFloat(document.getElementById('new-product-buy')?.value) || 15.00;
+      const sell = parseFloat(document.getElementById('new-product-sell')?.value) || 29.99;
+      const qty = parseInt(document.getElementById('new-product-qty')?.value, 10) || 10;
+      if (!name) return;
+      const prefix = name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4).padEnd(4, 'X');
+      state.products.unshift({
+        id: 'prod-' + Date.now(),
+        name,
+        category: 'Mobile Accessories',
+        qrCode: `STK-${prefix}-${Math.floor(1000 + Math.random() * 9000)}`,
+        buyingPrice: buy,
+        sellingPrice: sell,
+        quantity: qty,
+        minStockLevel: 5
+      });
+      saveState();
+      render();
+    }
+
+    function exportExcelCsv() {
+      const rows = [
+        ['Date', 'Product', 'Qty Sold', 'Unit Buy (£)', 'Unit Sell (£)', 'Revenue (£)', 'Gross Profit (£)'],
+        ...state.transactions.filter(t => t.type === 'SALE').map(t => [
+          t.timestamp || '2026-10-28',
+          `"${t.productName.replace(/"/g, '""')}"`,
+          t.quantity,
+          t.unitBuyingPrice.toFixed(2),
+          t.unitSellingPrice.toFixed(2),
+          (t.quantity * t.unitSellingPrice).toFixed(2),
+          (t.quantity * (t.unitSellingPrice - t.unitBuyingPrice)).toFixed(2)
+        ])
+      ];
+      const csv = '\uFEFF' + rows.map(r => r.join(',')).join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'Mobile_Store_Monthly_Profit_Report.csv';
+      a.click();
+    }
+
+    function switchToStaff() {
+      state.role = 'STAFF';
+      const badge = document.getElementById('role-badge');
+      badge.textContent = 'STAFF';
+      badge.className = 'badge badge-staff';
+      saveState();
+      render();
+    }
+
+    function unlockOwner() {
+      const pin = document.getElementById('owner-pin-input')?.value || '';
+      if (pin === state.ownerPin) {
+        state.role = 'OWNER';
+        const badge = document.getElementById('role-badge');
+        badge.textContent = 'OWNER';
+        badge.className = 'badge badge-owner';
+        saveState();
+        render();
+      } else {
+        alert('Incorrect PIN (Default Owner PIN is 1234)');
+      }
+    }
+
+    function render() {
+      const container = document.getElementById('screen-container');
+      if (state.tab === 'scan') {
+        const bannerColors = {
+          SELL: 'background:#F0FDFA;color:#0F766E;border-color:#99F6E4;',
+          RESTOCK: 'background:#EFF6FF;color:#1D4ED8;border-color:#BFDBFE;',
+          INFO: 'background:#FFFBEB;color:#B45309;border-color:#FDE68A;'
+        };
+        container.innerHTML = `
+          <div class="segmented">
+            <button class="seg-btn ${state.scannerMode === 'SELL' ? 'active-SELL' : ''}" onclick="setMode('SELL')">Sell Mode</button>
+            <button class="seg-btn ${state.scannerMode === 'RESTOCK' ? 'active-RESTOCK' : ''}" onclick="setMode('RESTOCK')">Restock</button>
+            <button class="seg-btn ${state.scannerMode === 'INFO' ? 'active-INFO' : ''}" onclick="setMode('INFO')">Info</button>
+          </div>
+          <div id="active-mode-banner" style="${bannerColors[state.scannerMode]}">${state.scannerMode} MODE ACTIVE — Tap any phone/accessory below or open iPhone camera</div>
+          <div class="camera-box">
+            <video id="live-video" playsinline></video>
+            <div class="reticle">
+              <div class="laser-line"></div>
+              QR & Barcode Scanner Ready
+            </div>
+            <button class="camera-btn" onclick="startLiveCamera()">📷 Open Live iPhone Camera</button>
+          </div>
+          ${state.products.map(p => `
+            <div class="card prod-row" onclick="openScanModal('${p.id}')">
+              <div style="display:flex;align-items:center;gap:10px;flex:1;">
+                <div>${makeDesignerQrSvg(p.qrCode, 46, state.qrTheme)}</div>
+                <div>
+                  <div class="prod-name">${escapeHtml(p.name)}</div>
+                  <div class="prod-sub"><span class="mono-code">${escapeHtml(p.qrCode)}</span> • <strong>£${p.sellingPrice.toFixed(2)}</strong></div>
+                </div>
+              </div>
+              <span class="stock-pill ${p.quantity <= p.minStockLevel ? 'low' : ''}">${p.quantity} in stock</span>
+            </div>
+          `).join('')}
+        `;
+      } else if (state.tab === 'products') {
+        container.innerHTML = `
+          <div class="card">
+            <strong style="font-size:14px;">Add New Mobile Product (Auto Designer QR)</strong>
+            <input id="new-product-name" placeholder="Product Name (e.g. MagSafe Clear Case)" />
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+              <input id="new-product-buy" type="number" step="0.01" placeholder="Buy £" />
+              <input id="new-product-sell" type="number" step="0.01" placeholder="Sell £" />
+              <input id="new-product-qty" type="number" placeholder="Qty" />
+            </div>
+            <button class="btn-primary" onclick="addNewProduct()">✨ Create Product & Generate Designer QR</button>
+          </div>
+          ${state.products.map(p => `
+            <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+              <div style="flex:1;">
+                <div class="prod-name">${escapeHtml(p.name)}</div>
+                <div class="prod-sub"><span class="mono-code">${escapeHtml(p.qrCode)}</span> • Sell: <strong>£${p.sellingPrice.toFixed(2)}</strong> ${state.role === 'OWNER' ? `• Buy: £${p.buyingPrice.toFixed(2)}` : ''}</div>
+                <button style="margin-top:8px;padding:6px 12px;border-radius:99px;border:1px solid #0D9488;background:#F0FDFA;color:#0F766E;font-weight:800;font-size:11.5px;cursor:pointer;" onclick="openQrPrintModal('${p.id}')">✨ QR Studio & AirPrint Label</button>
+              </div>
+              <div onclick="openQrPrintModal('${p.id}')" style="cursor:pointer;">${makeDesignerQrSvg(p.qrCode, 58, state.qrTheme)}</div>
+            </div>
+          `).join('')}
+        `;
+      } else if (state.tab === 'stock') {
+        const low = state.products.filter(p => p.quantity <= p.minStockLevel);
+        container.innerHTML = `
+          <div class="card" style="background:linear-gradient(135deg,#0F172A,#1E293B);color:#FFF;">
+            <strong>Automatic Supplier Reorder List (${low.length} Low-Stock Items)</strong>
+            <div style="font-size:11.5px;color:#94A3B8;margin-top:3px;">Everything below its minimum alert level, ready for your next distributor order.</div>
+          </div>
+          ${low.map(p => `
+            <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="prod-name">${escapeHtml(p.name)}</div>
+                <div class="prod-sub" style="color:#DC2626;font-weight:800;">⚠ Low Stock: Only ${p.quantity} left (Min level: ${p.minStockLevel})</div>
+                <div class="prod-sub">Warranty / Batch Date: ${escapeHtml(p.expiryDate || 'None')}</div>
+              </div>
+              <div>${makeDesignerQrSvg(p.qrCode, 48, state.qrTheme)}</div>
+            </div>
+          `).join('')}
+        `;
+      } else if (state.tab === 'dashboard') {
+        if (state.role !== 'OWNER') {
+          container.innerHTML = `
+            <div class="card" style="text-align:center;padding:24px;">
+              <h3>🔒 Owner Access Required</h3>
+              <p style="font-size:12px;color:#64748B;">Staff accounts can only sell, restock, and view stock. Enter Owner PIN to view profit.</p>
+              <input id="owner-pin-input" type="password" placeholder="Enter PIN (1234)" />
+              <button class="btn-primary" onclick="unlockOwner()">Unlock Profit Dashboard</button>
+            </div>
+          `;
+          return;
+        }
+        let revenue = 0, cost = 0;
+        state.transactions.filter(t => t.type === 'SALE').forEach(t => {
+          revenue += t.quantity * t.unitSellingPrice;
+          cost += t.quantity * t.unitBuyingPrice;
+        });
+        const profit = revenue - cost;
+        container.innerHTML = `
+          <div class="kpi-grid">
+            <div class="kpi-box">
+              <div style="font-size:10px;opacity:0.9;font-weight:800;">MONTHLY GROSS PROFIT</div>
+              <div class="kpi-val">£${profit.toFixed(2)}</div>
+            </div>
+            <div class="kpi-box" style="background:linear-gradient(135deg,#0F172A,#1E293B);">
+              <div style="font-size:10px;opacity:0.9;font-weight:800;">MONTHLY REVENUE</div>
+              <div class="kpi-val">£${revenue.toFixed(2)}</div>
+            </div>
+          </div>
+          <div class="card">
+            <strong>Accountant Report Export (PDF / Excel)</strong>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button class="btn-primary" style="flex:1;padding:10px;" onclick="window.print()">📄 Print / Save PDF</button>
+              <button class="btn-primary" style="flex:1;padding:10px;background:linear-gradient(135deg,#2563EB,#1D4ED8);" onclick="exportExcelCsv()">📊 Download Excel CSV</button>
+            </div>
+          </div>
+          <div class="card">
+            <strong>Accurate Historical Sales Log</strong>
+            <p style="font-size:11px;color:#64748B;margin:4px 0 8px;">Prices are saved with each sale so changing a price today never alters past months' figures.</p>
+            ${state.transactions.map(t => `
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:7px 0;border-top:1px solid #F1F5F9;">
+                <span>${escapeHtml(t.productName)} (×${t.quantity})</span>
+                <strong style="color:#0D9488;">+£${(t.quantity * (t.unitSellingPrice - t.unitBuyingPrice)).toFixed(2)} profit</strong>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else if (state.tab === 'settings') {
+        container.innerHTML = `
+          <div class="card">
+            <strong>Multiple Users & Roles (Owner vs. Staff)</strong>
+            <p style="font-size:12px;color:#64748B;">The Owner sees everything including profit. Staff accounts can only sell, restock, and view stock.</p>
+            <p style="font-size:13px;">Active Role: <strong>${state.role}</strong></p>
+            <button class="btn-primary" style="background:linear-gradient(135deg,#2563EB,#1D4ED8);margin-bottom:10px;" onclick="switchToStaff()">Switch Phone to Staff Mode</button>
+            <button class="btn-primary" style="background:linear-gradient(135deg,#DC2626,#991B1B);" onclick="window.location.href='./client-demo.html'">🔒 Switch to Blocked Client Demo Mode</button>
+          </div>
+        `;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>
