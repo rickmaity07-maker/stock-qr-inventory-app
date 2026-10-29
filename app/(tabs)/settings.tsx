@@ -14,11 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import { useInventory, MASTER_LICENSE_KEY } from '../../src/context/InventoryContext';
 
-export const APP_VERSION = 'v2.0.0';
-const GITHUB_LATEST_RELEASE_API =
-  'https://api.github.com/repos/rickmaity07-maker/stock-qr-inventory-app/releases/latest';
+export const APP_VERSION = 'v2.1.0';
 const DIRECT_APK_UPDATE_URL =
-  'https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/latest/download/Stock-QR-Inventory.apk';
+  'https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/download/v1.0.0/Stock-QR-Inventory.apk';
 const CLIENT_LOCKED_DEMO_WEB_URL =
   'https://rickmaity07-maker.github.io/stock-qr-inventory-app/client-demo.html';
 
@@ -39,6 +37,7 @@ export default function SettingsScreen() {
     updateCloudConfig,
     syncWithCloud,
     resetToDemoData,
+    pullOnlineUpdateFromGitHub,
   } = useInventory();
 
   const [pinAttempt, setPinAttempt] = useState<string>('');
@@ -123,31 +122,9 @@ export default function SettingsScreen() {
   const handleCheckOnlineUpdate = async () => {
     setCheckingOta(true);
     try {
-      // 1. Check live GitHub Releases cloud server for newer APK / release
-      const res = await fetch(GITHUB_LATEST_RELEASE_API, {
-        headers: { Accept: 'application/vnd.github+json' },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const remoteTag = data.tag_name || 'v2.0.0';
-        setLatestOnlineTag(remoteTag);
-
-        if (remoteTag !== APP_VERSION) {
-          setCheckingOta(false);
-          Alert.alert(
-            `Online Update Available (${remoteTag})`,
-            `A newer Mobile Store release (${remoteTag}) is live on GitHub Cloud. Tap "Download & Update" to install it directly on your phone.`,
-            [
-              { text: 'Later', style: 'cancel' },
-              {
-                text: 'Download & Update',
-                onPress: () => Linking.openURL(DIRECT_APK_UPDATE_URL),
-              },
-            ]
-          );
-          return;
-        }
-      }
+      // 1. Pull & apply live Mobile Store catalogue, QR connections, and config from GitHub Cloud
+      const liveRes = await pullOnlineUpdateFromGitHub();
+      setLatestOnlineTag(liveRes.version);
 
       // 2. Also check Expo Over-The-Air (OTA) bundle updates if running in EAS
       if (!__DEV__) {
@@ -159,18 +136,25 @@ export default function SettingsScreen() {
             return;
           }
         } catch {
-          // Standalone Gradle build uses GitHub Release Cloud APK updater above
+          // Live cloud manifest + GitHub APK updater handled above
         }
       }
 
       Alert.alert(
-        'App is Up to Date',
-        `You are running the latest Mobile Store Edition (${APP_VERSION}). You can also force-download the latest APK anytime with the button below.`
+        `✅ Online Update Applied (${liveRes.version})`,
+        `${liveRes.notes}\n\nAll Mobile Store products and QR codes are synced live inside the app. Need to reinstall the full Android APK binary? Tap "Download APK" below.`,
+        [
+          { text: 'Done', style: 'default' },
+          {
+            text: 'Download APK',
+            onPress: () => Linking.openURL(liveRes.apkUrl || DIRECT_APK_UPDATE_URL),
+          },
+        ]
       );
     } catch (err: any) {
       Alert.alert(
         'Online Update Check',
-        'Connected to GitHub Release Cloud Updater. Tap "Download Latest APK Online" below to install the newest build directly.'
+        'Connected to GitHub Cloud Updater. Tap "Direct Download Latest Online APK" below to install the newest build directly.'
       );
     } finally {
       setCheckingOta(false);

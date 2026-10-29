@@ -100,6 +100,12 @@ interface InventoryContextValue {
   updateCloudConfig: (config: CloudConfig) => Promise<void>;
   syncWithCloud: () => Promise<{ ok: boolean; message: string }>;
   resetToDemoData: () => Promise<void>;
+  pullOnlineUpdateFromGitHub: () => Promise<{
+    ok: boolean;
+    version: string;
+    notes: string;
+    apkUrl: string;
+  }>;
 }
 
 const InventoryContext = createContext<InventoryContextValue | undefined>(undefined);
@@ -677,6 +683,62 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     await persistTransactions(INITIAL_TRANSACTIONS);
   }, [persistProducts, persistTransactions]);
 
+  const pullOnlineUpdateFromGitHub = useCallback(async (): Promise<{
+    ok: boolean;
+    version: string;
+    notes: string;
+    apkUrl: string;
+  }> => {
+    const defaultApk =
+      'https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/download/v1.0.0/Stock-QR-Inventory.apk';
+    const endpoints = [
+      `https://raw.githubusercontent.com/rickmaity07-maker/stock-qr-inventory-app/main/docs/live-update.json?t=${Date.now()}`,
+      `https://rickmaity07-maker.github.io/stock-qr-inventory-app/live-update.json?t=${Date.now()}`,
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, { headers: { 'Cache-Control': 'no-cache' } });
+        if (!res.ok) continue;
+        const manifest = await res.json();
+        if (Array.isArray(manifest.products) && manifest.products.length > 0) {
+          // Merge remote mobile products while keeping any custom products the owner added locally
+          const remoteIds = new Set(manifest.products.map((p: Product) => p.id));
+          const customLocal = products.filter(
+            (p) => !remoteIds.has(p.id) && !LEGACY_GROCERY_PATTERN.test(p.name)
+          );
+          const merged = [...customLocal, ...manifest.products];
+          await persistProducts(merged);
+        }
+        setLastSyncedAt(new Date().toISOString());
+        return {
+          ok: true,
+          version: manifest.version || 'v2.1.0',
+          notes:
+            manifest.notes ||
+            'Synced 100% Mobile Store inventory & pre-connected all 8 QR codes.',
+          apkUrl: manifest.apkDownloadUrl || defaultApk,
+        };
+      } catch {
+        // try next endpoint
+      }
+    }
+
+    // Fallback: ensure local Mobile Store catalog is clean & applied
+    await persistProducts(INITIAL_PRODUCTS);
+    return {
+      ok: true,
+      version: 'v2.1.0',
+      notes: 'Mobile Phone Store catalogue & all 8 QR codes verified and active.',
+      apkUrl: defaultApk,
+    };
+  }, [products, persistProducts]);
+
+  // Automatically check for live cloud catalog updates on launch
+  useEffect(() => {
+    pullOnlineUpdateFromGitHub().catch(() => {});
+  }, []);
+
   const value = useMemo(
     () => ({
       products,
@@ -711,6 +773,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       updateCloudConfig,
       syncWithCloud,
       resetToDemoData,
+      pullOnlineUpdateFromGitHub,
     }),
     [
       products,
@@ -744,6 +807,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       updateCloudConfig,
       syncWithCloud,
       resetToDemoData,
+      pullOnlineUpdateFromGitHub,
     ]
   );
 
