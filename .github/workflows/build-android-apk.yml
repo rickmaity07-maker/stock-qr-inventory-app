@@ -7,10 +7,12 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   build-apk:
-    name: Build Standalone Android APK
+    name: Build Standalone Android APK (Full + Client Demo)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -26,6 +28,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Install dependencies
         run: |
@@ -40,33 +43,50 @@ jobs:
           echo "android.kotlinVersion=1.9.25" >> android/gradle.properties
           sed -i "s/1\.9\.24/1.9.25/g" android/build.gradle || true
 
-      - name: Build Standalone Release APK (Self-Contained JS Bundle)
+      - name: Build Full Unlocked Owner APK (Stock-QR-Inventory.apk)
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease -Pandroid.kotlinVersion=1.9.25 -x lint -x test --no-daemon
 
-      - name: Rename APK for Direct Phone Download
+      - name: Save Full Unlocked APK
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk ./Stock-QR-Inventory.apk
           ls -lh ./Stock-QR-Inventory.apk
 
-      - name: Upload APK Artifact
+      - name: Build Blocked Client Demo APK (Stock-QR-Client-Demo-Locked.apk)
+        run: |
+          sed -i "s/DEFAULT_CLIENT_DEMO_LOCKED = false/DEFAULT_CLIENT_DEMO_LOCKED = true/g" src/context/InventoryContext.tsx
+          sed -i "s/Stock & QR Inventory/Mobile Store (Client Demo)/g" android/app/src/main/res/values/strings.xml || true
+          cd android
+          ./gradlew assembleRelease -Pandroid.kotlinVersion=1.9.25 -x lint -x test --no-daemon
+          cd ..
+          cp android/app/build/outputs/apk/release/app-release.apk ./Stock-QR-Client-Demo-Locked.apk
+          ls -lh ./Stock-QR-Client-Demo-Locked.apk
+
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Stock-QR-Inventory-APK
-          path: ./Stock-QR-Inventory.apk
+          name: Stock-QR-Inventory-APKs
+          path: |
+            ./Stock-QR-Inventory.apk
+            ./Stock-QR-Client-Demo-Locked.apk
 
-      - name: Publish Direct APK Download to GitHub Releases
+      - name: Publish Direct APK Downloads to GitHub Releases (v1.0.0 & v2.0.0)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.0
-          name: "Stock & QR Inventory Studio v1.0.0 (Android APK)"
+          name: "Mobile Store QR Inventory v2.0.0 (Full Owner APK + Blocked Client Demo APK)"
           body: |
-            ## 📱 Direct Android APK Download
-            Tap **`Stock-QR-Inventory.apk`** below on your Android phone to download and install the native Android app directly!
+            ## 📱 1. Full Unlocked Owner Android APK (Mobile Phone Store Edition + Online Updates)
+            Tap **`Stock-QR-Inventory.apk`** below to install the full unlocked app with Mobile Store inventory, Designer QR Studio, Profit Dashboard, and Online Update Checker.
+
+            ## 🔒 2. Blocked Client Demo Android APK (Send This to Your Client)
+            Tap or share **`Stock-QR-Client-Demo-Locked.apk`** to show a client how the app works **without** giving them full access (watermarked, 3-scan demo limit, adding/printing/exporting locked).
           files: |
             ./Stock-QR-Inventory.apk
+            ./Stock-QR-Client-Demo-Locked.apk
+            ./docs/client-demo.html
             ./dist/Stock-QR-Inventory-Android.html
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

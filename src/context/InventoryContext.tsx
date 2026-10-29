@@ -21,12 +21,17 @@ import {
 } from '../services/supabase';
 
 const STORAGE_KEYS = {
-  PRODUCTS: '@stockqr_products_v1',
-  TRANSACTIONS: '@stockqr_transactions_v1',
-  ROLE: '@stockqr_role_v1',
-  OWNER_PIN: '@stockqr_owner_pin_v1',
-  CLOUD_CONFIG: '@stockqr_cloud_config_v1',
+  PRODUCTS: '@stockqr_products_v2_mobile',
+  TRANSACTIONS: '@stockqr_transactions_v2_mobile',
+  ROLE: '@stockqr_role_v2_mobile',
+  OWNER_PIN: '@stockqr_owner_pin_v2_mobile',
+  CLOUD_CONFIG: '@stockqr_cloud_config_v2_mobile',
+  CLIENT_DEMO_LOCK: '@stockqr_client_demo_lock_v2',
 };
+
+// Replaced automatically by CI when building the locked Client Demo APK
+export const DEFAULT_CLIENT_DEMO_LOCKED = false;
+export const MASTER_LICENSE_KEY = 'MOBILE-PRO-2026';
 
 interface AddProductInput {
   name: string;
@@ -51,6 +56,11 @@ interface InventoryContextValue {
   unsyncedCount: number;
   lowStockProducts: Product[];
   expiringProducts: Product[];
+  isClientDemoLocked: boolean;
+  demoActionsRemaining: number;
+  consumeDemoAction: () => boolean;
+  enableClientDemoLock: () => Promise<void>;
+  unlockClientDemo: (licenseOrPin: string) => Promise<boolean>;
   setScannerMode: (mode: ScannerMode) => void;
   switchToStaffRole: () => Promise<void>;
   unlockOwnerRole: (pin: string) => Promise<boolean>;
@@ -104,29 +114,66 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [isClientDemoLocked, setIsClientDemoLocked] = useState<boolean>(DEFAULT_CLIENT_DEMO_LOCKED);
+  const [demoActionsRemaining, setDemoActionsRemaining] = useState<number>(3);
 
   // Load persisted offline-first state on launch
   useEffect(() => {
     (async () => {
       try {
-        const [savedProducts, savedTx, savedRole, savedPin, savedCloud] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEYS.PRODUCTS),
-          AsyncStorage.getItem(STORAGE_KEYS.TRANSACTIONS),
-          AsyncStorage.getItem(STORAGE_KEYS.ROLE),
-          AsyncStorage.getItem(STORAGE_KEYS.OWNER_PIN),
-          AsyncStorage.getItem(STORAGE_KEYS.CLOUD_CONFIG),
-        ]);
+        const [savedProducts, savedTx, savedRole, savedPin, savedCloud, savedDemoLock] =
+          await Promise.all([
+            AsyncStorage.getItem(STORAGE_KEYS.PRODUCTS),
+            AsyncStorage.getItem(STORAGE_KEYS.TRANSACTIONS),
+            AsyncStorage.getItem(STORAGE_KEYS.ROLE),
+            AsyncStorage.getItem(STORAGE_KEYS.OWNER_PIN),
+            AsyncStorage.getItem(STORAGE_KEYS.CLOUD_CONFIG),
+            AsyncStorage.getItem(STORAGE_KEYS.CLIENT_DEMO_LOCK),
+          ]);
 
         if (savedProducts) setProducts(JSON.parse(savedProducts));
         if (savedTx) setTransactions(JSON.parse(savedTx));
         if (savedRole === 'OWNER' || savedRole === 'STAFF') setRole(savedRole);
         if (savedPin) setOwnerPin(savedPin);
         if (savedCloud) setCloudConfig(JSON.parse(savedCloud));
+        if (savedDemoLock !== null) {
+          setIsClientDemoLocked(savedDemoLock === 'true');
+        }
       } catch (err) {
         console.warn('Failed to load offline inventory state:', err);
       }
     })();
   }, []);
+
+  const enableClientDemoLock = useCallback(async () => {
+    setIsClientDemoLocked(true);
+    setDemoActionsRemaining(3);
+    setRole('STAFF');
+    await AsyncStorage.setItem(STORAGE_KEYS.CLIENT_DEMO_LOCK, 'true');
+  }, []);
+
+  const unlockClientDemo = useCallback(
+    async (licenseOrPin: string): Promise<boolean> => {
+      const clean = licenseOrPin.trim().toUpperCase();
+      if (clean === MASTER_LICENSE_KEY || clean === ownerPin.toUpperCase()) {
+        setIsClientDemoLocked(false);
+        setRole('OWNER');
+        await AsyncStorage.setItem(STORAGE_KEYS.CLIENT_DEMO_LOCK, 'false');
+        return true;
+      }
+      return false;
+    },
+    [ownerPin]
+  );
+
+  const consumeDemoAction = useCallback((): boolean => {
+    if (!isClientDemoLocked) return true;
+    if (demoActionsRemaining <= 0) {
+      return false;
+    }
+    setDemoActionsRemaining((prev) => Math.max(0, prev - 1));
+    return true;
+  }, [isClientDemoLocked, demoActionsRemaining]);
 
   const persistProducts = useCallback(async (nextProducts: Product[]) => {
     setProducts(nextProducts);
@@ -584,6 +631,11 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       unsyncedCount,
       lowStockProducts,
       expiringProducts,
+      isClientDemoLocked,
+      demoActionsRemaining,
+      consumeDemoAction,
+      enableClientDemoLock,
+      unlockClientDemo,
       setScannerMode,
       switchToStaffRole,
       unlockOwnerRole,
@@ -613,6 +665,11 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       unsyncedCount,
       lowStockProducts,
       expiringProducts,
+      isClientDemoLocked,
+      demoActionsRemaining,
+      consumeDemoAction,
+      enableClientDemoLock,
+      unlockClientDemo,
       switchToStaffRole,
       unlockOwnerRole,
       updateOwnerPin,

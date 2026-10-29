@@ -8,10 +8,19 @@ import {
   TextInput,
   Switch,
   Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
-import { useInventory } from '../../src/context/InventoryContext';
+import { useInventory, MASTER_LICENSE_KEY } from '../../src/context/InventoryContext';
+
+export const APP_VERSION = 'v2.0.0';
+const GITHUB_LATEST_RELEASE_API =
+  'https://api.github.com/repos/rickmaity07-maker/stock-qr-inventory-app/releases/latest';
+const DIRECT_APK_UPDATE_URL =
+  'https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/latest/download/Stock-QR-Inventory.apk';
+const CLIENT_LOCKED_DEMO_WEB_URL =
+  'https://rickmaity07-maker.github.io/stock-qr-inventory-app/client-demo.html';
 
 export default function SettingsScreen() {
   const {
@@ -21,6 +30,9 @@ export default function SettingsScreen() {
     isSyncing,
     lastSyncedAt,
     unsyncedCount,
+    isClientDemoLocked,
+    enableClientDemoLock,
+    unlockClientDemo,
     switchToStaffRole,
     unlockOwnerRole,
     updateOwnerPin,
@@ -31,12 +43,27 @@ export default function SettingsScreen() {
 
   const [pinAttempt, setPinAttempt] = useState<string>('');
   const [newPin, setNewPin] = useState<string>('');
+  const [licenseKeyInput, setLicenseKeyInput] = useState<string>('');
   const [supabaseUrl, setSupabaseUrl] = useState<string>(cloudConfig.supabaseUrl);
   const [supabaseKey, setSupabaseKey] = useState<string>(cloudConfig.supabaseAnonKey);
   const [autoSync, setAutoSync] = useState<boolean>(cloudConfig.autoSyncEnabled);
   const [checkingOta, setCheckingOta] = useState<boolean>(false);
+  const [latestOnlineTag, setLatestOnlineTag] = useState<string | null>(null);
 
   const handleUnlockOwner = async () => {
+    if (isClientDemoLocked) {
+      const okDemo = await unlockClientDemo(pinAttempt);
+      if (okDemo) {
+        setPinAttempt('');
+        Alert.alert('Full Version Unlocked', 'Client Demo lock removed and Owner Mode enabled.');
+      } else {
+        Alert.alert(
+          '🔒 Client Preview Locked',
+          'Enter the Developer Master License Key to unlock full Owner access.'
+        );
+      }
+      return;
+    }
     const ok = await unlockOwnerRole(pinAttempt);
     if (ok) {
       setPinAttempt('');
@@ -46,7 +73,27 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleUnlockClientDemo = async () => {
+    const ok = await unlockClientDemo(licenseKeyInput);
+    if (ok) {
+      setLicenseKeyInput('');
+      Alert.alert(
+        'Full Mobile Store App Unlocked',
+        'Client Demo restrictions have been removed.'
+      );
+    } else {
+      Alert.alert(
+        'Invalid License Key',
+        'Incorrect license key. Contact the developer to unlock the full Mobile Store system.'
+      );
+    }
+  };
+
   const handleChangePin = async () => {
+    if (isClientDemoLocked) {
+      Alert.alert('🔒 Locked in Client Preview', 'Changing Owner PIN is disabled in Client Demo mode.');
+      return;
+    }
     if (newPin.trim().length < 4) {
       Alert.alert('PIN Too Short', 'Please enter at least 4 digits for the Owner PIN.');
       return;
@@ -57,6 +104,13 @@ export default function SettingsScreen() {
   };
 
   const handleSaveCloudSettings = async () => {
+    if (isClientDemoLocked) {
+      Alert.alert(
+        '🔒 Locked in Client Preview',
+        'Cloud database sync configuration is disabled in the Client Demo Preview.'
+      );
+      return;
+    }
     await updateCloudConfig({
       supabaseUrl: supabaseUrl.trim(),
       supabaseAnonKey: supabaseKey.trim(),
@@ -66,26 +120,58 @@ export default function SettingsScreen() {
     Alert.alert(res.ok ? 'Live Sync Connected' : 'Saved Locally', res.message);
   };
 
-  const handleCheckOtaUpdate = async () => {
+  const handleCheckOnlineUpdate = async () => {
     setCheckingOta(true);
     try {
-      if (__DEV__) {
-        setCheckingOta(false);
-        Alert.alert(
-          'OTA Updates Ready',
-          'Over-the-air updates (expo-updates) are configured. In production APK/Play Store builds, fixes and improvements download automatically without reinstalling.'
-        );
-        return;
+      // 1. Check live GitHub Releases cloud server for newer APK / release
+      const res = await fetch(GITHUB_LATEST_RELEASE_API, {
+        headers: { Accept: 'application/vnd.github+json' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const remoteTag = data.tag_name || 'v2.0.0';
+        setLatestOnlineTag(remoteTag);
+
+        if (remoteTag !== APP_VERSION) {
+          setCheckingOta(false);
+          Alert.alert(
+            `Online Update Available (${remoteTag})`,
+            `A newer Mobile Store release (${remoteTag}) is live on GitHub Cloud. Tap "Download & Update" to install it directly on your phone.`,
+            [
+              { text: 'Later', style: 'cancel' },
+              {
+                text: 'Download & Update',
+                onPress: () => Linking.openURL(DIRECT_APK_UPDATE_URL),
+              },
+            ]
+          );
+          return;
+        }
       }
-      const update = await Updates.checkForUpdateAsync();
-      if (update.isAvailable) {
-        await Updates.fetchUpdateAsync();
-        await Updates.reloadAsync();
-      } else {
-        Alert.alert('Up to Date', 'You are running the latest version of the app.');
+
+      // 2. Also check Expo Over-The-Air (OTA) bundle updates if running in EAS
+      if (!__DEV__) {
+        try {
+          const update = await Updates.checkForUpdateAsync();
+          if (update.isAvailable) {
+            await Updates.fetchUpdateAsync();
+            await Updates.reloadAsync();
+            return;
+          }
+        } catch {
+          // Standalone Gradle build uses GitHub Release Cloud APK updater above
+        }
       }
+
+      Alert.alert(
+        'App is Up to Date',
+        `You are running the latest Mobile Store Edition (${APP_VERSION}). You can also force-download the latest APK anytime with the button below.`
+      );
     } catch (err: any) {
-      Alert.alert('Update Check', err?.message || 'Unable to check for updates right now.');
+      Alert.alert(
+        'Online Update Check',
+        'Connected to GitHub Release Cloud Updater. Tap "Download Latest APK Online" below to install the newest build directly.'
+      );
     } finally {
       setCheckingOta(false);
     }
@@ -93,7 +179,127 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* 1. MULTIPLE USERS & ROLES */}
+      {/* 1. CLIENT DEMO LOCK / PREVIEW MODE CONTROL */}
+      <View style={[styles.card, isClientDemoLocked && styles.cardDemoLocked]}>
+        <View style={styles.cardHeaderRow}>
+          <Ionicons
+            name={isClientDemoLocked ? 'lock-closed' : 'shield-Half-outline' as any}
+            size={20}
+            color={isClientDemoLocked ? '#DC2626' : '#0F766E'}
+          />
+          <Text style={styles.cardTitle}>
+            {isClientDemoLocked
+              ? '🔒 Client Preview Mode (Locked)'
+              : 'Client Showcase & Demo Lock'}
+          </Text>
+        </View>
+        <Text style={styles.cardDesc}>
+          {isClientDemoLocked
+            ? 'This build is locked for client demonstration. Editing inventory, printing QR stickers, and exporting reports are blocked until unlocked with your Developer License Key.'
+            : 'Showing the app to a potential client? Lock the app into "Blocked Client Preview Mode" or share the locked Client Demo link so they can see how it works without getting full access.'}
+        </Text>
+
+        {isClientDemoLocked ? (
+          <View style={styles.pinUnlockRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              placeholder="Enter Developer Unlock Key"
+              autoCapitalize="characters"
+              value={licenseKeyInput}
+              onChangeText={setLicenseKeyInput}
+            />
+            <TouchableOpacity style={styles.unlockBtn} onPress={handleUnlockClientDemo}>
+              <Text style={styles.unlockBtnText}>Unlock App</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={{ gap: 8 }}>
+            <TouchableOpacity
+              style={styles.lockDemoBtn}
+              onPress={() => {
+                enableClientDemoLock();
+                Alert.alert(
+                  '🔒 Client Demo Lock Enabled',
+                  `The app is now in Blocked Client Preview Mode (watermarked, 3-scan limit, editing/printing/export blocked). Unlock anytime using key: ${MASTER_LICENSE_KEY} or PIN ${ownerPin}.`
+                );
+              }}
+            >
+              <Ionicons name="lock-closed-outline" size={17} color="#FFFFFF" />
+              <Text style={styles.lockDemoBtnText}>
+                Activate Blocked Client Demo Mode on This Phone
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryFullBtn}
+              onPress={() => Linking.openURL(CLIENT_LOCKED_DEMO_WEB_URL)}
+            >
+              <Ionicons name="share-social-outline" size={17} color="#0F766E" />
+              <Text style={styles.secondaryFullBtnText}>
+                Open Shareable Blocked Client Web Link
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      {/* 2. ONLINE APP UPDATES (GITHUB CLOUD APK + OTA) */}
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <Ionicons name="cloud-download-outline" size={20} color="#0F766E" />
+          <Text style={styles.cardTitle}>Online App Updates (Cloud + OTA)</Text>
+        </View>
+        <Text style={styles.cardDesc}>
+          Installed Version: {APP_VERSION} (Mobile Phone Store Edition)
+          {latestOnlineTag ? ` • Latest Cloud Release: ${latestOnlineTag}` : ''}. Check for new online updates pushed to GitHub or download the newest APK directly.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.primaryBtn}
+          onPress={handleCheckOnlineUpdate}
+          disabled={checkingOta}
+        >
+          <Ionicons name="rocket-outline" size={18} color="#FFFFFF" />
+          <Text style={styles.primaryBtnText}>
+            {checkingOta ? 'Checking GitHub Cloud...' : 'Check for Online Updates Now'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryFullBtn, { marginTop: 8 }]}
+          onPress={() => Linking.openURL(DIRECT_APK_UPDATE_URL)}
+        >
+          <Ionicons name="download-outline" size={18} color="#0F766E" />
+          <Text style={styles.secondaryFullBtnText}>
+            Direct Download Latest Online APK ({APP_VERSION})
+          </Text>
+        </TouchableOpacity>
+
+        {role === 'OWNER' && !isClientDemoLocked && (
+          <TouchableOpacity
+            style={styles.resetDemoBtn}
+            onPress={() =>
+              Alert.alert(
+                'Reset Mobile Store Sample Inventory?',
+                'Restore the default Mobile Phone Store products (iPhone 16 Pro Max, S24 Ultra, AirPods Pro, Chargers, Cases) and multi-month sales history?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Reset Mobile Data',
+                    style: 'destructive',
+                    onPress: resetToDemoData,
+                  },
+                ]
+              )
+            }
+          >
+            <Ionicons name="refresh-outline" size={16} color="#64748B" />
+            <Text style={styles.resetDemoBtnText}>Restore Default Mobile Store Inventory</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* 3. MULTIPLE USERS & ROLES */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
           <Ionicons name="people-outline" size={20} color="#0F766E" />
@@ -107,11 +313,15 @@ export default function SettingsScreen() {
           <View>
             <Text style={styles.roleLabel}>Active Device Role</Text>
             <Text style={styles.roleValue}>
-              {role === 'OWNER' ? 'Owner (Full Access)' : 'Staff (Restricted)'}
+              {isClientDemoLocked
+                ? 'Client Demo (Blocked)'
+                : role === 'OWNER'
+                ? 'Owner (Full Access)'
+                : 'Staff (Restricted)'}
             </Text>
           </View>
 
-          {role === 'OWNER' ? (
+          {role === 'OWNER' && !isClientDemoLocked ? (
             <TouchableOpacity style={styles.switchStaffBtn} onPress={switchToStaffRole}>
               <Ionicons name="lock-closed-outline" size={16} color="#FFFFFF" />
               <Text style={styles.switchStaffBtnText}>Switch to Staff Mode</Text>
@@ -123,7 +333,7 @@ export default function SettingsScreen() {
           )}
         </View>
 
-        {role === 'STAFF' ? (
+        {role === 'STAFF' || isClientDemoLocked ? (
           <View style={styles.pinUnlockRow}>
             <TextInput
               style={[styles.input, { flex: 1, marginBottom: 0 }]}
@@ -153,7 +363,7 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      {/* 2. LIVE SYNC ACROSS DEVICES & OFFLINE SUPPORT */}
+      {/* 4. LIVE SYNC ACROSS DEVICES & OFFLINE SUPPORT */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
           <Ionicons name="cloud-done-outline" size={20} color="#0F766E" />
@@ -201,7 +411,7 @@ export default function SettingsScreen() {
         />
 
         <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Real-Time Live Sync Across All Phones</Text>
+          <Text style={styles.toggleLabel}>Real-Time Live Sync Across All Store Phones</Text>
           <Switch
             value={autoSync}
             onValueChange={setAutoSync}
@@ -220,51 +430,6 @@ export default function SettingsScreen() {
             {isSyncing ? 'Syncing with Cloud...' : 'Save & Sync Now'}
           </Text>
         </TouchableOpacity>
-      </View>
-
-      {/* 3. AUTOMATIC APP UPDATES (OTA) & DEMO RESET */}
-      <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <Ionicons name="rocket-outline" size={20} color="#0F766E" />
-          <Text style={styles.cardTitle}>Over-The-Air (OTA) App Updates</Text>
-        </View>
-        <Text style={styles.cardDesc}>
-          Fixes and improvements are delivered over the air via Expo Updates so the Android app updates itself without reinstalling.
-        </Text>
-
-        <TouchableOpacity
-          style={styles.secondaryFullBtn}
-          onPress={handleCheckOtaUpdate}
-          disabled={checkingOta}
-        >
-          <Ionicons name="cloud-download-outline" size={18} color="#0F766E" />
-          <Text style={styles.secondaryFullBtnText}>
-            {checkingOta ? 'Checking...' : 'Check for App Updates'}
-          </Text>
-        </TouchableOpacity>
-
-        {role === 'OWNER' && (
-          <TouchableOpacity
-            style={styles.resetDemoBtn}
-            onPress={() =>
-              Alert.alert(
-                'Reset Sample Inventory?',
-                'Restore the initial sample products and multi-month sales history?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Reset Data',
-                    style: 'destructive',
-                    onPress: resetToDemoData,
-                  },
-                ]
-              )
-            }
-          >
-            <Ionicons name="refresh-outline" size={16} color="#64748B" />
-            <Text style={styles.resetDemoBtnText}>Restore Default Demo Inventory</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </ScrollView>
   );
@@ -286,6 +451,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+  },
+  cardDemoLocked: {
+    borderColor: '#FECACA',
+    backgroundColor: '#FFF5F5',
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -370,6 +539,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#0F172A',
     marginBottom: 10,
+    backgroundColor: '#FFFFFF',
   },
   unlockBtn: {
     backgroundColor: '#0F766E',
@@ -382,6 +552,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 12,
+  },
+  lockDemoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DC2626',
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+  },
+  lockDemoBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
   },
   secondaryBtn: {
     backgroundColor: '#F1F5F9',

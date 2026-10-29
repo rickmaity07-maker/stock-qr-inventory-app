@@ -16,7 +16,8 @@ import { printProductQrLabels } from '../../src/utils/printAndExport';
 import { DesignerQrCode } from '../../src/components/DesignerQrCode';
 
 export default function ProductsScreen() {
-  const { products, role, addProduct, updateProduct, deleteProduct } = useInventory();
+  const { products, role, isClientDemoLocked, addProduct, updateProduct, deleteProduct } =
+    useInventory();
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -60,10 +61,21 @@ export default function ProductsScreen() {
     });
   }, [products, searchQuery, selectedCategory]);
 
+  const showClientLockAlert = (featureName: string) => {
+    Alert.alert(
+      '🔒 Locked in Client Preview',
+      `${featureName} is disabled in this Client Demo build. Contact the developer or enter your License Key in Settings to unlock full Mobile Store access.`
+    );
+  };
+
   const openAddModal = () => {
+    if (isClientDemoLocked) {
+      showClientLockAlert('Adding new mobile store inventory');
+      return;
+    }
     setEditingProduct(null);
     setName('');
-    setCategory('General');
+    setCategory('Smartphones');
     setBuyingPrice('');
     setSellingPrice('');
     setQuantity('10');
@@ -74,6 +86,10 @@ export default function ProductsScreen() {
   };
 
   const openEditModal = (product: Product) => {
+    if (isClientDemoLocked) {
+      showClientLockAlert('Editing product prices & stock');
+      return;
+    }
     setEditingProduct(product);
     setName(product.name);
     setCategory(product.category);
@@ -126,6 +142,10 @@ export default function ProductsScreen() {
   };
 
   const handleDeleteProduct = (product: Product) => {
+    if (isClientDemoLocked) {
+      showClientLockAlert('Deleting catalogue products');
+      return;
+    }
     Alert.alert(
       'Delete Product',
       `Remove "${product.name}" from the catalogue? Past monthly sales history will still remain intact.`,
@@ -141,6 +161,10 @@ export default function ProductsScreen() {
   };
 
   const triggerLabelPrint = (product: Product, mode: 'SINGLE' | 'A4_SHEET') => {
+    if (isClientDemoLocked) {
+      showClientLockAlert('Printing QR thermal labels & A4 sticker sheets');
+      return;
+    }
     const copies = parseInt(sheetCopiesCount, 10) || 24;
     if (qrSvgRef.current && typeof qrSvgRef.current.toDataURL === 'function') {
       qrSvgRef.current.toDataURL((base64Data: string) => {
@@ -316,7 +340,7 @@ export default function ProductsScreen() {
                 style={styles.textInput}
                 value={name}
                 onChangeText={setName}
-                placeholder="e.g. Organic Olive Oil (1L)"
+                placeholder="e.g. iPhone 16 Pro Max 256GB (Natural Titanium)"
               />
 
               <Text style={styles.inputLabel}>Category</Text>
@@ -324,7 +348,7 @@ export default function ProductsScreen() {
                 style={styles.textInput}
                 value={category}
                 onChangeText={setCategory}
-                placeholder="e.g. Pantry, Beverages, Dairy"
+                placeholder="e.g. Smartphones, Chargers & Cables, Cases"
               />
 
               <View style={styles.twoColRow}>
@@ -384,13 +408,13 @@ export default function ProductsScreen() {
               />
 
               <Text style={styles.inputLabel}>
-                Expiry Date for Perishables (Optional, YYYY-MM-DD)
+                Warranty / Batch Expiry Date (Optional, YYYY-MM-DD)
               </Text>
               <TextInput
                 style={styles.textInput}
                 value={expiryDate}
                 onChangeText={setExpiryDate}
-                placeholder="e.g. 2027-06-15"
+                placeholder="e.g. 2027-10-15"
               />
 
               <TouchableOpacity style={styles.saveProductBtn} onPress={handleSaveProduct}>

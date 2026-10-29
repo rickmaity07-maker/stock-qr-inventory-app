@@ -144,7 +144,7 @@
   </nav>
 
   <script>
-    const STORAGE_KEY = 'stock_qr_studio_state_v1';
+    const STORAGE_KEY = 'stock_qr_mobile_store_v2';
     const QR_THEMES = {
       EMERALD: { name: 'Emerald Boutique', primary: '#0F172A', accent: '#0D9488' },
       GOLD: { name: 'Royal Gold', primary: '#1E1B4B', accent: '#D97706' },
@@ -159,14 +159,17 @@
       qrTheme: 'EMERALD',
       selectedProduct: null,
       products: [
-        { id: 'prod-1', name: 'Organic Extra Virgin Olive Oil (1L)', category: 'Pantry', qrCode: 'STK-OLIVE-1001', buyingPrice: 6.50, sellingPrice: 11.99, quantity: 24, minStockLevel: 8, expiryDate: '2027-06-15' },
-        { id: 'prod-2', name: 'Premium Basmati Rice (5kg Bag)', category: 'Grains', qrCode: 'STK-RICE-1002', buyingPrice: 7.20, sellingPrice: 13.50, quantity: 4, minStockLevel: 6, expiryDate: '2027-11-30' },
-        { id: 'prod-3', name: 'Fresh Whole Milk (2L)', category: 'Dairy', qrCode: 'STK-MILK-1003', buyingPrice: 1.15, sellingPrice: 1.89, quantity: 9, minStockLevel: 10, expiryDate: '2026-11-02' },
-        { id: 'prod-4', name: 'Roasted Arabica Coffee Beans (500g)', category: 'Beverages', qrCode: 'STK-COFF-1004', buyingPrice: 5.00, sellingPrice: 9.99, quantity: 18, minStockLevel: 5, expiryDate: '2027-04-10' }
+        { id: 'prod-1', name: 'iPhone 16 Pro Max 256GB (Natural Titanium)', category: 'Smartphones', qrCode: 'STK-IP16-1001', buyingPrice: 890.00, sellingPrice: 1149.00, quantity: 9, minStockLevel: 4, expiryDate: '2027-10-15' },
+        { id: 'prod-2', name: 'Samsung Galaxy S24 Ultra 512GB (Titanium Gray)', category: 'Smartphones', qrCode: 'STK-S24U-1002', buyingPrice: 780.00, sellingPrice: 1049.00, quantity: 2, minStockLevel: 5, expiryDate: '2027-09-30' },
+        { id: 'prod-3', name: 'Apple 20W USB-C Fast Power Adapter (Original)', category: 'Chargers & Cables', qrCode: 'STK-AP20-1003', buyingPrice: 9.50, sellingPrice: 19.99, quantity: 6, minStockLevel: 10, expiryDate: '2026-11-05' },
+        { id: 'prod-4', name: 'AirPods Pro (2nd Gen) MagSafe USB-C', category: 'Audio & Earbuds', qrCode: 'STK-AIRP-1004', buyingPrice: 155.00, sellingPrice: 219.00, quantity: 14, minStockLevel: 5, expiryDate: '2027-08-20' },
+        { id: 'prod-5', name: '9H Privacy Tempered Glass (iPhone 15/16 Pro Max)', category: 'Screen Protectors', qrCode: 'STK-GLAS-1005', buyingPrice: 1.80, sellingPrice: 12.99, quantity: 3, minStockLevel: 15, expiryDate: '2026-11-01' },
+        { id: 'prod-6', name: 'Anker MagGo 10,000mAh Qi2 Magnetic Power Bank', category: 'Power Banks', qrCode: 'STK-ANKR-1006', buyingPrice: 28.00, sellingPrice: 54.99, quantity: 12, minStockLevel: 5, expiryDate: '2027-05-10' }
       ],
       transactions: [
-        { id: 'tx-1', productId: 'prod-1', productName: 'Organic Extra Virgin Olive Oil (1L)', type: 'SALE', quantity: 12, unitBuyingPrice: 6.50, unitSellingPrice: 11.99, timestamp: '2026-10-27' },
-        { id: 'tx-2', productId: 'prod-2', productName: 'Premium Basmati Rice (5kg Bag)', type: 'SALE', quantity: 19, unitBuyingPrice: 7.20, unitSellingPrice: 13.50, timestamp: '2026-10-25' }
+        { id: 'tx-1', productId: 'prod-1', productName: 'iPhone 16 Pro Max 256GB (Natural Titanium)', type: 'SALE', quantity: 5, unitBuyingPrice: 890.00, unitSellingPrice: 1149.00, timestamp: '2026-10-27' },
+        { id: 'tx-2', productId: 'prod-2', productName: 'Samsung Galaxy S24 Ultra 512GB (Titanium Gray)', type: 'SALE', quantity: 4, unitBuyingPrice: 780.00, unitSellingPrice: 1049.00, timestamp: '2026-10-25' },
+        { id: 'tx-3', productId: 'prod-4', productName: 'AirPods Pro (2nd Gen) MagSafe USB-C', type: 'SALE', quantity: 9, unitBuyingPrice: 155.00, unitSellingPrice: 219.00, timestamp: '2026-10-21' }
       ]
     };
 
@@ -451,8 +454,8 @@
       } else if (state.tab === 'products') {
         container.innerHTML = `
           <div class="card">
-            <strong style="font-size:14px;">Add New Product (Auto Designer QR)</strong>
-            <input id="new-product-name" placeholder="Product Name (e.g. Wildflower Honey)" />
+            <strong style="font-size:14px;">Add New Mobile Product (Auto Designer QR)</strong>
+            <input id="new-product-name" placeholder="Product Name (e.g. MagSafe Clear Case)" />
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
               <input id="new-product-buy" type="number" step="0.01" placeholder="Buy £" />
               <input id="new-product-sell" type="number" step="0.01" placeholder="Sell £" />

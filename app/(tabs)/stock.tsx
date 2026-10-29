@@ -7,6 +7,7 @@ import {
   ScrollView,
   Modal,
   TextInput,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useInventory } from '../../src/context/InventoryContext';
@@ -16,8 +17,14 @@ import { printReorderListPdf } from '../../src/utils/printAndExport';
 type StockTab = 'REORDER' | 'EXPIRY' | 'ALL_STOCK';
 
 export default function StockScreen() {
-  const { products, lowStockProducts, expiringProducts, role, recordRestock } =
-    useInventory();
+  const {
+    products,
+    lowStockProducts,
+    expiringProducts,
+    role,
+    isClientDemoLocked,
+    recordRestock,
+  } = useInventory();
 
   const [activeTab, setActiveTab] = useState<StockTab>('REORDER');
   const [quickRestockProduct, setQuickRestockProduct] = useState<Product | null>(null);
@@ -26,6 +33,13 @@ export default function StockScreen() {
   const [restockExpiry, setRestockExpiry] = useState<string>('');
 
   const openQuickRestock = (product: Product) => {
+    if (isClientDemoLocked) {
+      Alert.alert(
+        '🔒 Locked in Client Preview',
+        'Restocking and supplier order exports are disabled in this Client Demo build. Contact the developer to unlock the full Mobile Store system.'
+      );
+      return;
+    }
     const suggested = Math.max(product.minStockLevel * 2 - product.quantity, 5);
     setQuickRestockProduct(product);
     setRestockQty(String(suggested));
@@ -83,7 +97,7 @@ export default function StockScreen() {
               activeTab === 'EXPIRY' && styles.tabBtnTextActive,
             ]}
           >
-            Expiry Tracker ({expiringProducts.length})
+            Warranty & Batch ({expiringProducts.length})
           </Text>
         </TouchableOpacity>
 
@@ -116,7 +130,16 @@ export default function StockScreen() {
               {lowStockProducts.length > 0 && (
                 <TouchableOpacity
                   style={styles.exportSupplierBtn}
-                  onPress={() => printReorderListPdf(lowStockProducts)}
+                  onPress={() => {
+                    if (isClientDemoLocked) {
+                      Alert.alert(
+                        '🔒 Locked in Client Preview',
+                        'Printing supplier purchase orders is disabled in the Client Demo Preview.'
+                      );
+                      return;
+                    }
+                    printReorderListPdf(lowStockProducts);
+                  }}
                 >
                   <Ionicons name="print-outline" size={16} color="#FFFFFF" />
                   <Text style={styles.exportSupplierBtnText}>Print Order</Text>
@@ -157,7 +180,8 @@ export default function StockScreen() {
 
                     <View style={styles.reorderFooter}>
                       <Text style={styles.suggestedText}>
-                        Suggested supplier order: <strong>+{suggestedQty} units</strong>
+                        Suggested supplier order:{' '}
+                        <Text style={{ fontWeight: '800' }}>+{suggestedQty} units</Text>
                         {role === 'OWNER'
                           ? ` (Est. £${(suggestedQty * item.buyingPrice).toFixed(2)})`
                           : ''}
@@ -182,9 +206,9 @@ export default function StockScreen() {
           <>
             <View style={styles.bannerCard}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.bannerTitle}>Perishable Stock Expiry Tracker</Text>
+                <Text style={styles.bannerTitle}>Mobile Warranty & Batch Tracker</Text>
                 <Text style={styles.bannerDesc}>
-                  Products with recorded expiry dates sorted by soonest expiry date.
+                  Devices, power banks, and sealed accessories tracked by distributor warranty or batch check date.
                 </Text>
               </View>
             </View>

@@ -60,6 +60,9 @@ export default function ScannerScreen() {
     recordSale,
     recordRestock,
     linkFactoryBarcode,
+    isClientDemoLocked,
+    demoActionsRemaining,
+    consumeDemoAction,
   } = useInventory();
 
   const [permission, requestPermission] = useCameraPermissions();
@@ -128,6 +131,14 @@ export default function ScannerScreen() {
   };
 
   const executeSale = async (product: Product, qty: number) => {
+    if (isClientDemoLocked && !consumeDemoAction()) {
+      setScannedProduct(null);
+      Alert.alert(
+        '🔒 Client Demo Limit Reached (0/3 Left)',
+        'You have used all 3 demo scans in this blocked Client Preview. Contact the developer or enter your License Key in Settings to unlock unlimited Mobile Store scanning.'
+      );
+      return;
+    }
     const { product: updated, lowStockTriggered } = await recordSale(
       product.id,
       qty,
@@ -146,6 +157,14 @@ export default function ScannerScreen() {
 
   const handleConfirmRestock = async () => {
     if (!scannedProduct) return;
+    if (isClientDemoLocked && !consumeDemoAction()) {
+      setScannedProduct(null);
+      Alert.alert(
+        '🔒 Client Demo Limit Reached (0/3 Left)',
+        'You have used all 3 demo actions in this blocked Client Preview. Contact the developer to unlock full Mobile Store restocking.'
+      );
+      return;
+    }
     const qty = Math.max(1, parseInt(quantityStr, 10) || 1);
     const buyPrice = parseFloat(buyingPriceStr);
     const validBuyPrice = !isNaN(buyPrice) && buyPrice >= 0 ? buyPrice : scannedProduct.buyingPrice;
