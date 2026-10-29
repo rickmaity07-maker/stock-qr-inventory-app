@@ -86,7 +86,7 @@ export default function DashboardScreen() {
       <View style={styles.lockContainer}>
         <View style={styles.lockCard}>
           <View style={styles.lockIconCircle}>
-            <Ionicons name="lock-closed" size={32} color="#0F766E" />
+            <Ionicons name="lock-closed" size={32} color="#007AFF" />
           </View>
           <Text style={styles.lockTitle}>Owner Access Required</Text>
           <Text style={styles.lockSubtitle}>
@@ -129,7 +129,7 @@ export default function DashboardScreen() {
               <Ionicons
                 name="calendar-outline"
                 size={14}
-                color={active ? '#FFFFFF' : '#475569'}
+                color={active ? '#FFFFFF' : '#636366'}
               />
               <Text
                 style={[styles.monthChipText, active && styles.monthChipTextActive]}
@@ -209,7 +209,7 @@ export default function DashboardScreen() {
             style={styles.exportExcelBtn}
             onPress={() => exportMonthlyReportExcelCsv(summary)}
           >
-            <Ionicons name="grid-outline" size={18} color="#0F766E" />
+            <Ionicons name="grid-outline" size={18} color="#007AFF" />
             <Text style={styles.exportExcelBtnText}>Export Excel (CSV)</Text>
           </TouchableOpacity>
         </View>
@@ -225,7 +225,7 @@ export default function DashboardScreen() {
               <Text style={styles.legendText}>Revenue</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendSwatch, { backgroundColor: '#0F766E' }]} />
+              <View style={[styles.legendSwatch, { backgroundColor: '#007AFF' }]} />
               <Text style={styles.legendText}>Gross Profit</Text>
             </View>
           </View>
@@ -242,13 +242,13 @@ export default function DashboardScreen() {
                   <View
                     style={[
                       styles.barItem,
-                      { height: revHeight, backgroundColor: '#CBD5E1' },
+                      { height: revHeight, backgroundColor: '#D1D1D6' },
                     ]}
                   />
                   <View
                     style={[
                       styles.barItem,
-                      { height: profHeight, backgroundColor: '#0F766E' },
+                      { height: profHeight, backgroundColor: '#007AFF' },
                     ]}
                   />
                 </View>
@@ -301,7 +301,7 @@ export default function DashboardScreen() {
               <Text style={styles.rankName}>{item.productName}</Text>
               <Text style={styles.rankSub}>{item.unitsSold} units sold this month</Text>
             </View>
-            <Text style={[styles.rankProfit, { color: '#64748B' }]}>
+            <Text style={[styles.rankProfit, { color: '#8E8E93' }]}>
               £{item.grossProfit.toFixed(2)}
             </Text>
           </View>
@@ -314,7 +314,7 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
   },
   content: {
     padding: 12,
@@ -333,17 +333,17 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
     gap: 6,
   },
   monthChipActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
+    backgroundColor: '#1C1C1E',
+    borderColor: '#1C1C1E',
   },
   monthChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: '#636366',
   },
   monthChipTextActive: {
     color: '#FFFFFF',
@@ -358,27 +358,27 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
   },
   kpiCardPrimary: {
-    backgroundColor: '#0F766E',
-    borderColor: '#0F766E',
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
   },
   kpiLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#8E8E93',
     textTransform: 'uppercase',
   },
   kpiValue: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
     marginTop: 6,
   },
   kpiSub: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8E8E93',
     marginTop: 4,
   },
   kpiLabelLight: {
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1C1C1E',
     padding: 14,
     borderRadius: 14,
   },
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   valuationCostVal: {
-    color: '#E2E8F0',
+    color: '#E5E5EA',
     fontSize: 15,
     fontWeight: '700',
   },
@@ -439,23 +439,23 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
   },
   sectionCard: {
     backgroundColor: '#FFFFFF',
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
   },
   sectionHeader: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   sectionSub: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8E8E93',
     marginTop: 3,
     marginBottom: 12,
   },
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F766E',
+    backgroundColor: '#007AFF',
     paddingVertical: 11,
     borderRadius: 10,
     gap: 6,
@@ -483,15 +483,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0FDFA',
+    backgroundColor: '#EAF3FF',
     paddingVertical: 11,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#0F766E',
+    borderColor: '#007AFF',
     gap: 6,
   },
   exportExcelBtnText: {
-    color: '#0F766E',
+    color: '#007AFF',
     fontWeight: '800',
     fontSize: 13,
   },
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 10,
-    color: '#64748B',
+    color: '#8E8E93',
     fontWeight: '600',
   },
   chartBarsWrap: {
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
     height: 150,
     paddingTop: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E5E5EA',
   },
   chartCol: {
     alignItems: 'center',
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   chartTopVal: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#0F766E',
+    color: '#007AFF',
     marginBottom: 4,
   },
   barPair: {
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
   },
   chartMonthLabel: {
     fontSize: 10,
-    color: '#64748B',
+    color: '#8E8E93',
     marginTop: 6,
     marginBottom: 4,
     fontWeight: '600',
@@ -560,44 +560,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F2F2F7',
     gap: 10,
   },
   rankBadge: {
     width: 30,
     height: 30,
     borderRadius: 8,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: '#EAF3FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   rankBadgeText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#0F766E',
+    color: '#007AFF',
   },
   rankName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   rankSub: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8E8E93',
   },
   rankProfit: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F766E',
+    color: '#007AFF',
   },
   emptyText: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#8E8E93',
     marginTop: 8,
   },
   lockContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
     justifyContent: 'center',
     padding: 20,
   },
@@ -607,13 +607,13 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
   },
   lockIconCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: '#EAF3FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
@@ -621,11 +621,11 @@ const styles = StyleSheet.create({
   lockTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   lockSubtitle: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#8E8E93',
     textAlign: 'center',
     marginTop: 6,
     marginBottom: 18,
@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 46,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D1D1D6',
     borderRadius: 10,
     paddingHorizontal: 14,
     fontSize: 15,
@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F766E',
+    backgroundColor: '#007AFF',
     paddingVertical: 13,
     borderRadius: 10,
     gap: 8,

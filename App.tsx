@@ -69,7 +69,7 @@ function MainShell() {
       <View style={styles.header}>
         <View style={styles.brandRow}>
           <View style={styles.brandBadge}>
-            <Text style={styles.brandBadgeText}>QR</Text>
+            <Ionicons name="cube" size={17} color="#FFFFFF" />
           </View>
           <Text style={styles.headerTitle} numberOfLines={1}>
             {tabTitles[activeTab]}
@@ -169,7 +169,7 @@ function MainShell() {
           <Ionicons
             name="scan-circle"
             size={24}
-            color={activeTab === 'scan' ? '#0D9488' : '#64748B'}
+            color={activeTab === 'scan' ? '#007AFF' : '#8E8E93'}
           />
           <Text
             style={[
@@ -188,7 +188,7 @@ function MainShell() {
           <Ionicons
             name="phone-portrait-outline"
             size={21}
-            color={activeTab === 'products' ? '#0D9488' : '#64748B'}
+            color={activeTab === 'products' ? '#007AFF' : '#8E8E93'}
           />
           <Text
             style={[
@@ -208,7 +208,7 @@ function MainShell() {
             <Ionicons
               name="cube-outline"
               size={21}
-              color={activeTab === 'stock' ? '#0D9488' : '#64748B'}
+              color={activeTab === 'stock' ? '#007AFF' : '#8E8E93'}
             />
             {lowStockCount > 0 && (
               <View style={styles.badgeCircle}>
@@ -233,7 +233,7 @@ function MainShell() {
           <Ionicons
             name={role === 'OWNER' && !isClientDemoLocked ? 'bar-chart-outline' : 'lock-closed-outline'}
             size={21}
-            color={activeTab === 'dashboard' ? '#0D9488' : '#64748B'}
+            color={activeTab === 'dashboard' ? '#007AFF' : '#8E8E93'}
           />
           <Text
             style={[
@@ -252,7 +252,7 @@ function MainShell() {
           <Ionicons
             name="settings-outline"
             size={21}
-            color={activeTab === 'settings' ? '#0D9488' : '#64748B'}
+            color={activeTab === 'settings' ? '#007AFF' : '#8E8E93'}
           />
           <Text
             style={[
@@ -314,7 +314,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <InventoryProvider>
-        <StatusBar style="light" backgroundColor="#090E1A" />
+        <StatusBar style="dark" backgroundColor="#F2F2F7" />
         <MainShell />
       </InventoryProvider>
     </SafeAreaProvider>
@@ -324,17 +324,17 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#090E1A',
+    backgroundColor: '#F2F2F7',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#090E1A',
+    backgroundColor: '#F2F2F7',
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: '#E5E5EA',
   },
   brandRow: {
     flexDirection: 'row',
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: '#0D9488',
+    backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -356,9 +356,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
+    color: '#1C1C1E',
+    fontSize: 17,
+    fontWeight: '700',
     flex: 1,
   },
   headerRightContainer: {
@@ -375,10 +375,10 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   syncPillOnline: {
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+    backgroundColor: '#E8F7EE',
   },
   syncPillOffline: {
-    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+    backgroundColor: '#FFF4D6',
   },
   dot: {
     width: 6,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   syncText: {
-    color: '#E2E8F0',
+    color: '#3A3A3C',
     fontSize: 10,
     fontWeight: '700',
   },
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   roleOwner: {
-    backgroundColor: '#0D9488',
+    backgroundColor: '#007AFF',
   },
   roleStaff: {
     backgroundColor: '#2563EB',
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   },
   screenBody: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
   },
   watermarkOverlay: {
     position: 'absolute',
@@ -469,10 +469,10 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    height: 62,
+    height: 68,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#E5E5EA',
     paddingBottom: 6,
     paddingTop: 6,
   },
@@ -484,11 +484,11 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#8E8E93',
     marginTop: 2,
   },
   tabLabelActive: {
-    color: '#0D9488',
+    color: '#007AFF',
   },
   badgeCircle: {
     position: 'absolute',
@@ -529,22 +529,22 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   modalDesc: {
     fontSize: 13,
-    color: '#475569',
+    color: '#636366',
     lineHeight: 19,
     marginBottom: 14,
   },
   modalInput: {
     height: 44,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D1D1D6',
     borderRadius: 10,
     paddingHorizontal: 12,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#1C1C1E',
     marginBottom: 14,
   },
   modalActions: {
@@ -555,11 +555,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F2F2F7',
     alignItems: 'center',
   },
   modalCancelText: {
-    color: '#475569',
+    color: '#636366',
     fontWeight: '700',
     fontSize: 13,
   },
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#0D9488',
+    backgroundColor: '#007AFF',
     alignItems: 'center',
   },
   modalConfirmText: {

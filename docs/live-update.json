@@ -1,7 +1,7 @@
 {
-  "version": "v2.2.0",
-  "releasedAt": "2026-10-29T12:00:00.000Z",
-  "notes": "100% Mobile Phone Store PDF Parity + Live Cross-Device Sync + Over-The-Air Software Updates (No Reinstall Required)",
+  "version": "v2.3.0",
+  "releasedAt": "2026-10-29T18:48:45.000Z",
+  "notes": "Apple-inspired redesign with a refined scanner, clearer navigation, and updated catalogue, stock, and dashboard screens.",
   "apkDownloadUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/download/v1.0.0/Stock-QR-Inventory.apk",
   "clientDemoApkUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/download/v1.0.0/Stock-QR-Client-Demo-Locked.apk",
   "products": [

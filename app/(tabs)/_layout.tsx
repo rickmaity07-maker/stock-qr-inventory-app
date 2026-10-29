@@ -13,7 +13,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#0F172A',
+          backgroundColor: '#1C1C1E',
           elevation: 4,
         },
         headerTitleStyle: {
@@ -58,14 +58,14 @@ export default function TabsLayout() {
             </View>
           </View>
         ),
-        tabBarActiveTintColor: '#0F766E',
-        tabBarInactiveTintColor: '#64748B',
+        tabBarActiveTintColor: '#007AFF',
+        tabBarInactiveTintColor: '#8E8E93',
         tabBarStyle: {
           height: 64,
           paddingBottom: 8,
           paddingTop: 6,
           backgroundColor: '#FFFFFF',
-          borderTopColor: '#E2E8F0',
+          borderTopColor: '#E5E5EA',
           borderTopWidth: 1,
         },
         tabBarLabelStyle: {
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   syncText: {
-    color: '#E2E8F0',
+    color: '#E5E5EA',
     fontSize: 11,
     fontWeight: '600',
   },
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   roleOwner: {
-    backgroundColor: '#0F766E',
+    backgroundColor: '#007AFF',
   },
   roleStaff: {
     backgroundColor: '#3B82F6',

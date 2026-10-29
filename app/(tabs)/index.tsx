@@ -29,8 +29,8 @@ const MODE_CONFIG: Record<
   SELL: {
     label: 'Sell Mode',
     subtitle: 'Scan sticker → confirm quantity (defaults to 1) → stock goes down & sale recorded',
-    accentColor: '#0F766E',
-    bgColor: '#F0FDFA',
+    accentColor: '#007AFF',
+    bgColor: '#EAF3FF',
     icon: 'cart-outline',
   },
   RESTOCK: {
@@ -223,7 +223,7 @@ export default function ScannerScreen() {
                 <Ionicons
                   name={cfg.icon}
                   size={16}
-                  color={isSelected ? '#FFFFFF' : '#475569'}
+                  color={isSelected ? '#FFFFFF' : '#636366'}
                 />
                 <Text
                   style={[
@@ -373,7 +373,7 @@ export default function ScannerScreen() {
                   <Text style={styles.quickProductName} numberOfLines={1}>
                     {item.name}
                   </Text>
-                  <Text style={[styles.quickProductCode, { color: '#0F766E', fontWeight: '700' }]}>
+                  <Text style={[styles.quickProductCode, { color: '#007AFF', fontWeight: '700' }]}>
                     ● QR Connected: {item.qrCode}
                   </Text>
                 </View>
@@ -431,7 +431,7 @@ export default function ScannerScreen() {
                   <Text style={styles.scannedItemName}>{scannedProduct.name}</Text>
                   <Text style={styles.scannedItemMeta}>
                     QR: {scannedProduct.qrCode} • Current Stock:{' '}
-                    <Text style={{ fontWeight: '800', color: '#0F172A' }}>
+                    <Text style={{ fontWeight: '800', color: '#1C1C1E' }}>
                       {scannedProduct.quantity} units
                     </Text>
                   </Text>
@@ -448,7 +448,7 @@ export default function ScannerScreen() {
                         </View>
                         <View style={{ alignItems: 'flex-end' }}>
                           <Text style={styles.priceBoxLabel}>Total Sale</Text>
-                          <Text style={[styles.priceBoxValue, { color: '#0F766E' }]}>
+                          <Text style={[styles.priceBoxValue, { color: '#007AFF' }]}>
                             £
                             {(
                               (parseInt(quantityStr, 10) || 1) *
@@ -467,7 +467,7 @@ export default function ScannerScreen() {
                             setQuantityStr(String(Math.max(1, curr - 1)));
                           }}
                         >
-                          <Ionicons name="remove" size={22} color="#0F172A" />
+                          <Ionicons name="remove" size={22} color="#1C1C1E" />
                         </TouchableOpacity>
                         <TextInput
                           style={styles.stepperInput}
@@ -482,14 +482,14 @@ export default function ScannerScreen() {
                             setQuantityStr(String(curr + 1));
                           }}
                         >
-                          <Ionicons name="add" size={22} color="#0F172A" />
+                          <Ionicons name="add" size={22} color="#1C1C1E" />
                         </TouchableOpacity>
                       </View>
 
                       <TouchableOpacity
                         style={[
                           styles.primaryConfirmBtn,
-                          { backgroundColor: '#0F766E' },
+                          { backgroundColor: '#007AFF' },
                         ]}
                         onPress={handleConfirmSale}
                       >
@@ -513,7 +513,7 @@ export default function ScannerScreen() {
                             setQuantityStr(String(Math.max(1, curr - 1)));
                           }}
                         >
-                          <Ionicons name="remove" size={22} color="#0F172A" />
+                          <Ionicons name="remove" size={22} color="#1C1C1E" />
                         </TouchableOpacity>
                         <TextInput
                           style={styles.stepperInput}
@@ -627,7 +627,7 @@ export default function ScannerScreen() {
                               style={[
                                 styles.historyAmount,
                                 {
-                                  color: tx.type === 'SALE' ? '#0F766E' : '#1D4ED8',
+                                  color: tx.type === 'SALE' ? '#007AFF' : '#1D4ED8',
                                 },
                               ]}
                             >
@@ -656,7 +656,7 @@ export default function ScannerScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <View style={[styles.modalTopBanner, { backgroundColor: '#334155' }]}>
+            <View style={[styles.modalTopBanner, { backgroundColor: '#3A3A3C' }]}>
               <Text style={styles.modalBannerTitle}>
                 Link Existing Factory Barcode
               </Text>
@@ -681,7 +681,7 @@ export default function ScannerScreen() {
                     <Text style={styles.quickProductName}>{p.name}</Text>
                     <Text style={styles.quickProductCode}>QR: {p.qrCode}</Text>
                   </View>
-                  <Ionicons name="link-outline" size={20} color="#0F766E" />
+                  <Ionicons name="link-outline" size={20} color="#007AFF" />
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -700,7 +700,7 @@ export default function ScannerScreen() {
           <View style={styles.modalCard}>
             {enlargedQrProduct && (
               <>
-                <View style={[styles.modalTopBanner, { backgroundColor: '#0F766E' }]}>
+                <View style={[styles.modalTopBanner, { backgroundColor: '#007AFF' }]}>
                   <Text style={styles.modalBannerTitle}>Connected Product QR Sticker</Text>
                   <TouchableOpacity onPress={() => setEnlargedQrProduct(null)}>
                     <Ionicons name="close" size={24} color="#FFFFFF" />
@@ -727,35 +727,33 @@ export default function ScannerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
   },
   modeHeaderCard: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
-    borderRadius: 10,
-    padding: 3,
-    gap: 4,
+    backgroundColor: '#E5E5EA',
+    borderRadius: 13,
+    padding: 4,
+    gap: 5,
   },
   segmentButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 9,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
     gap: 6,
   },
   segmentButtonText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#475569',
+    color: '#636366',
   },
   segmentButtonTextActive: {
     color: '#FFFFFF',
@@ -786,7 +784,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   feedbackBannerSuccess: {
-    backgroundColor: '#0F766E',
+    backgroundColor: '#007AFF',
   },
   feedbackBannerWarn: {
     backgroundColor: '#DC2626',
@@ -797,16 +795,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   feedbackDetail: {
-    color: '#F1F5F9',
+    color: '#F2F2F7',
     fontSize: 11,
     marginTop: 2,
   },
   cameraWrapper: {
-    height: 230,
-    margin: 12,
-    borderRadius: 14,
+    height: 250,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 14,
+    borderRadius: 22,
     overflow: 'hidden',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1C1C1E',
     position: 'relative',
   },
   scannerOverlay: {
@@ -816,10 +816,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.25)',
   },
   reticleBox: {
-    width: 150,
-    height: 150,
-    borderWidth: 3,
-    borderRadius: 14,
+    width: 176,
+    height: 176,
+    borderWidth: 2,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   overlayModeTag: {
@@ -872,7 +872,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   grantButton: {
-    backgroundColor: '#0F766E',
+    backgroundColor: '#007AFF',
     paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: 8,
@@ -884,7 +884,7 @@ const styles = StyleSheet.create({
   },
   quickListSection: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
   },
   quickListHeader: {
     flexDirection: 'row',
@@ -895,11 +895,11 @@ const styles = StyleSheet.create({
   quickListTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   quickListSubtitle: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8E8E93',
   },
   quickListScroll: {
     paddingBottom: 20,
@@ -909,19 +909,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 10,
+    padding: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
   },
   quickProductName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   quickProductCode: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8E8E93',
     marginTop: 2,
   },
   quickRightMeta: {
@@ -931,7 +931,7 @@ const styles = StyleSheet.create({
   quickPrice: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F766E',
+    color: '#007AFF',
   },
   stockChip: {
     marginTop: 4,
@@ -940,7 +940,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   stockChipOk: {
-    backgroundColor: '#F0FDFA',
+    backgroundColor: '#EAF3FF',
   },
   stockChipLow: {
     backgroundColor: '#FEF2F2',
@@ -950,7 +950,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   stockChipTextOk: {
-    color: '#0F766E',
+    color: '#007AFF',
   },
   stockChipTextLow: {
     color: '#DC2626',
@@ -990,11 +990,11 @@ const styles = StyleSheet.create({
   scannedItemName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   scannedItemMeta: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#8E8E93',
     marginTop: 4,
     marginBottom: 14,
   },
@@ -1005,27 +1005,27 @@ const styles = StyleSheet.create({
   priceSummaryBox: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
     marginBottom: 14,
   },
   priceBoxLabel: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8E8E93',
   },
   priceBoxValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
     marginTop: 2,
   },
   fieldLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: '#3A3A3C',
     marginBottom: 6,
     marginTop: 8,
   },
@@ -1039,31 +1039,31 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F2F2F7',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D1D1D6',
   },
   stepperInput: {
     flex: 1,
     height: 48,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D1D1D6',
     borderRadius: 10,
     textAlign: 'center',
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   textInput: {
     height: 44,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D1D1D6',
     borderRadius: 10,
     paddingHorizontal: 12,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#1C1C1E',
     marginBottom: 8,
   },
   primaryConfirmBtn: {
@@ -1083,14 +1083,14 @@ const styles = StyleSheet.create({
   infoQrCenter: {
     alignItems: 'center',
     paddingVertical: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
     borderRadius: 12,
     marginBottom: 12,
   },
   infoQrCaption: {
     fontFamily: 'monospace',
     fontSize: 12,
-    color: '#334155',
+    color: '#3A3A3C',
     marginTop: 6,
   },
   infoGrid: {
@@ -1101,31 +1101,31 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     width: '48%',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
   },
   infoBoxLabel: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8E8E93',
   },
   infoBoxValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1C1C1E',
     marginTop: 2,
   },
   historyHeader: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1C1C1E',
     marginBottom: 8,
   },
   emptyHistoryText: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#8E8E93',
   },
   historyRow: {
     flexDirection: 'row',
@@ -1133,16 +1133,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F2F2F7',
   },
   historyType: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   historyDate: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8E8E93',
   },
   historyAmount: {
     fontSize: 13,

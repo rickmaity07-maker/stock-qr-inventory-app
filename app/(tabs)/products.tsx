@@ -180,7 +180,7 @@ export default function ProductsScreen() {
       {/* SEARCH & ADD PRODUCT BAR */}
       <View style={styles.topSearchRow}>
         <View style={styles.searchInputBox}>
-          <Ionicons name="search" size={18} color="#64748B" />
+          <Ionicons name="search" size={18} color="#8E8E93" />
           <TextInput
             style={styles.searchInput}
             placeholder="Search name, QR code, or barcode..."
@@ -267,7 +267,7 @@ export default function ProductsScreen() {
                     </View>
                     <View style={styles.metricBlock}>
                       <Text style={styles.metricLabel}>Unit Profit</Text>
-                      <Text style={[styles.metricValue, { color: '#0F766E' }]}>
+                      <Text style={[styles.metricValue, { color: '#007AFF' }]}>
                         +£{unitProfit.toFixed(2)}
                       </Text>
                     </View>
@@ -279,7 +279,7 @@ export default function ProductsScreen() {
                   <Text
                     style={[
                       styles.metricValue,
-                      { color: isLowStock ? '#DC2626' : '#0F172A' },
+                      { color: isLowStock ? '#DC2626' : '#1C1C1E' },
                     ]}
                   >
                     {product.quantity} units
@@ -292,7 +292,7 @@ export default function ProductsScreen() {
                   style={styles.actionBtnPrimary}
                   onPress={() => setQrModalProduct(product)}
                 >
-                  <Ionicons name="print-outline" size={16} color="#0F766E" />
+                  <Ionicons name="print-outline" size={16} color="#007AFF" />
                   <Text style={styles.actionBtnPrimaryText}>QR & Label Print</Text>
                 </TouchableOpacity>
 
@@ -302,7 +302,7 @@ export default function ProductsScreen() {
                       style={styles.actionBtnSecondary}
                       onPress={() => openEditModal(product)}
                     >
-                      <Ionicons name="create-outline" size={16} color="#334155" />
+                      <Ionicons name="create-outline" size={16} color="#3A3A3C" />
                       <Text style={styles.actionBtnSecondaryText}>Edit</Text>
                     </TouchableOpacity>
 
@@ -334,7 +334,7 @@ export default function ProductsScreen() {
                 {editingProduct ? 'Edit Product' : 'Add New Product'}
               </Text>
               <TouchableOpacity onPress={() => setEditorVisible(false)}>
-                <Ionicons name="close" size={24} color="#0F172A" />
+                <Ionicons name="close" size={24} color="#1C1C1E" />
               </TouchableOpacity>
             </View>
 
@@ -446,7 +446,7 @@ export default function ProductsScreen() {
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalHeaderTitle}>Product QR Label & Printing</Text>
                   <TouchableOpacity onPress={() => setQrModalProduct(null)}>
-                    <Ionicons name="close" size={24} color="#0F172A" />
+                    <Ionicons name="close" size={24} color="#1C1C1E" />
                   </TouchableOpacity>
                 </View>
 
@@ -493,7 +493,7 @@ export default function ProductsScreen() {
                       style={styles.printSheetBtn}
                       onPress={() => triggerLabelPrint(qrModalProduct, 'A4_SHEET')}
                     >
-                      <Ionicons name="grid-outline" size={18} color="#0F766E" />
+                      <Ionicons name="grid-outline" size={18} color="#007AFF" />
                       <Text style={styles.printSheetBtnText}>
                         Print Full A4 Sheet ({parseInt(sheetCopiesCount, 10) || 24} Copies)
                       </Text>
@@ -512,21 +512,21 @@ export default function ProductsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
   },
   topSearchRow: {
     flexDirection: 'row',
-    padding: 12,
+    padding: 16,
     gap: 8,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E5E5EA',
   },
   searchInputBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F2F2F7',
     borderRadius: 10,
     paddingHorizontal: 10,
     height: 42,
@@ -535,12 +535,12 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 13,
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F766E',
+    backgroundColor: '#007AFF',
     paddingHorizontal: 12,
     borderRadius: 10,
     gap: 4,
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E5E5EA',
   },
   categoryRow: {
     paddingHorizontal: 12,
@@ -564,15 +564,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F2F2F7',
   },
   categoryChipActive: {
-    backgroundColor: '#0F766E',
+    backgroundColor: '#007AFF',
   },
   categoryChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: '#636366',
   },
   categoryChipTextActive: {
     color: '#FFFFFF',
@@ -584,10 +584,10 @@ const styles = StyleSheet.create({
   },
   productCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -602,8 +602,8 @@ const styles = StyleSheet.create({
   categoryTag: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#0F766E',
-    backgroundColor: '#F0FDFA',
+    color: '#007AFF',
+    backgroundColor: '#EAF3FF',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -620,25 +620,25 @@ const styles = StyleSheet.create({
   productTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   qrSubtitle: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8E8E93',
     marginTop: 2,
   },
   qrPreviewBox: {
     alignItems: 'center',
     padding: 6,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
     borderRadius: 8,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
   },
   qrPrintHint: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#0F766E',
+    color: '#007AFF',
     marginTop: 3,
   },
   metricsRow: {
@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#F2F2F7',
   },
   metricBlock: {
     alignItems: 'flex-start',
@@ -657,12 +657,12 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     fontSize: 10,
-    color: '#64748B',
+    color: '#8E8E93',
   },
   metricValue: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
     marginTop: 2,
   },
   cardActionsRow: {
@@ -675,7 +675,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0FDFA',
+    backgroundColor: '#EAF3FF',
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
@@ -685,24 +685,24 @@ const styles = StyleSheet.create({
   actionBtnPrimaryText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0F766E',
+    color: '#007AFF',
   },
   actionBtnSecondary: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
     gap: 4,
   },
   actionBtnSecondaryText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#334155',
+    color: '#3A3A3C',
   },
   actionBtnDanger: {
     alignItems: 'center',
@@ -730,12 +730,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E5E5EA',
   },
   modalHeaderTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   modalBody: {
     padding: 16,
@@ -743,18 +743,18 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: '#3A3A3C',
     marginBottom: 5,
     marginTop: 8,
   },
   textInput: {
     height: 42,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D1D1D6',
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   twoColRow: {
     flexDirection: 'row',
@@ -764,7 +764,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F766E',
+    backgroundColor: '#007AFF',
     paddingVertical: 14,
     borderRadius: 10,
     marginTop: 18,
@@ -793,23 +793,23 @@ const styles = StyleSheet.create({
   stickerPreviewName: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
     textAlign: 'center',
   },
   stickerPreviewCode: {
     fontFamily: 'monospace',
     fontSize: 12,
-    color: '#475569',
+    color: '#636366',
   },
   stickerPreviewPrice: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F766E',
+    color: '#007AFF',
     marginTop: 4,
   },
   stickerHelpText: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#8E8E93',
     textAlign: 'center',
     marginVertical: 14,
   },
@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F766E',
+    backgroundColor: '#007AFF',
     paddingVertical: 13,
     borderRadius: 10,
     gap: 8,
@@ -831,11 +831,11 @@ const styles = StyleSheet.create({
   },
   a4PrintBox: {
     width: '100%',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
     marginBottom: 10,
   },
   a4CountRow: {
@@ -847,13 +847,13 @@ const styles = StyleSheet.create({
   a4CountLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#334155',
+    color: '#3A3A3C',
   },
   a4CountInput: {
     width: 70,
     height: 36,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D1D1D6',
     borderRadius: 8,
     textAlign: 'center',
     fontWeight: '700',
@@ -863,15 +863,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0FDFA',
+    backgroundColor: '#EAF3FF',
     paddingVertical: 11,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#0F766E',
+    borderColor: '#007AFF',
     gap: 8,
   },
   printSheetBtnText: {
-    color: '#0F766E',
+    color: '#007AFF',
     fontWeight: '800',
     fontSize: 13,
   },

@@ -243,7 +243,7 @@ export default function StockScreen() {
                             ? { color: '#DC2626' }
                             : isDueSoon
                             ? { color: '#B45309' }
-                            : { color: '#0F766E' },
+                            : { color: '#007AFF' },
                         ]}
                       >
                         {daysLeft === null
@@ -279,7 +279,7 @@ export default function StockScreen() {
                     <Text
                       style={[
                         styles.liveQtyValue,
-                        { color: isLow ? '#DC2626' : '#0F766E' },
+                        { color: isLow ? '#DC2626' : '#007AFF' },
                       ]}
                     >
                       {item.quantity} units
@@ -310,7 +310,7 @@ export default function StockScreen() {
                     Restock: {quickRestockProduct.name}
                   </Text>
                   <TouchableOpacity onPress={() => setQuickRestockProduct(null)}>
-                    <Ionicons name="close" size={24} color="#0F172A" />
+                    <Ionicons name="close" size={24} color="#1C1C1E" />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.modalBody}>
@@ -356,7 +356,7 @@ export default function StockScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
   },
   tabHeader: {
     flexDirection: 'row',
@@ -364,37 +364,37 @@ const styles = StyleSheet.create({
     padding: 8,
     gap: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E5E5EA',
   },
   tabBtn: {
     flex: 1,
     paddingVertical: 9,
     alignItems: 'center',
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F2F2F7',
   },
   tabBtnActive: {
-    backgroundColor: '#0F766E',
+    backgroundColor: '#007AFF',
   },
   tabBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: '#636366',
   },
   tabBtnTextActive: {
     color: '#FFFFFF',
   },
   scrollBody: {
-    padding: 12,
+    padding: 16,
     gap: 10,
     paddingBottom: 28,
   },
   bannerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1C1C1E',
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 18,
     gap: 10,
   },
   bannerTitle: {
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   exportSupplierBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F766E',
+    backgroundColor: '#007AFF',
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 8,
@@ -427,26 +427,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
     marginTop: 10,
   },
   emptySubtitle: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#8E8E93',
     textAlign: 'center',
     marginTop: 4,
   },
   alertCard: {
     backgroundColor: '#FFFFFF',
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
   },
   alertCardTop: {
     flexDirection: 'row',
@@ -457,11 +457,11 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   itemCode: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8E8E93',
     marginTop: 2,
   },
   lowBadge: {
@@ -485,11 +485,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#F2F2F7',
   },
   suggestedText: {
     fontSize: 12,
-    color: '#334155',
+    color: '#3A3A3C',
     flex: 1,
   },
   quickRestockBtn: {
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFBEB',
   },
   expirySafe: {
-    backgroundColor: '#F0FDFA',
+    backgroundColor: '#EAF3FF',
   },
   expiryStatusText: {
     fontSize: 11,
@@ -544,12 +544,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E5E5EA',
   },
   modalTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   modalBody: {
     padding: 16,
@@ -557,14 +557,14 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: '#3A3A3C',
     marginBottom: 6,
     marginTop: 8,
   },
   input: {
     height: 42,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D1D1D6',
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 14,

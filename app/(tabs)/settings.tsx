@@ -178,7 +178,7 @@ export default function SettingsScreen() {
           <Ionicons
             name={isClientDemoLocked ? 'lock-closed' : 'shield-Half-outline' as any}
             size={20}
-            color={isClientDemoLocked ? '#DC2626' : '#0F766E'}
+            color={isClientDemoLocked ? '#DC2626' : '#007AFF'}
           />
           <Text style={styles.cardTitle}>
             {isClientDemoLocked
@@ -227,7 +227,7 @@ export default function SettingsScreen() {
               style={styles.secondaryFullBtn}
               onPress={() => Linking.openURL(CLIENT_LOCKED_DEMO_WEB_URL)}
             >
-              <Ionicons name="share-social-outline" size={17} color="#0F766E" />
+              <Ionicons name="share-social-outline" size={17} color="#007AFF" />
               <Text style={styles.secondaryFullBtnText}>
                 Open Shareable Blocked Client Web Link
               </Text>
@@ -239,7 +239,7 @@ export default function SettingsScreen() {
       {/* 2. AUTOMATIC OVER-THE-AIR (OTA) SOFTWARE UPDATES */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
-          <Ionicons name="cloud-done-outline" size={20} color="#0F766E" />
+          <Ionicons name="cloud-done-outline" size={20} color="#007AFF" />
           <Text style={styles.cardTitle}>Automatic App Updates (Over-The-Air)</Text>
         </View>
         <Text style={styles.cardDesc}>
@@ -248,7 +248,7 @@ export default function SettingsScreen() {
 
         <View
           style={{
-            backgroundColor: '#F0FDFA',
+            backgroundColor: '#EAF3FF',
             borderWidth: 1,
             borderColor: '#99F6E4',
             borderRadius: 10,
@@ -256,7 +256,7 @@ export default function SettingsScreen() {
             marginBottom: 10,
           }}
         >
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#0F766E' }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#007AFF' }}>
             {otaStatusText}
           </Text>
           {otaProgress > 0 && (
@@ -273,7 +273,7 @@ export default function SettingsScreen() {
                 style={{
                   width: `${otaProgress}%`,
                   height: '100%',
-                  backgroundColor: '#0F766E',
+                  backgroundColor: '#007AFF',
                 }}
               />
             </View>
@@ -311,7 +311,7 @@ export default function SettingsScreen() {
               )
             }
           >
-            <Ionicons name="refresh-outline" size={16} color="#64748B" />
+            <Ionicons name="refresh-outline" size={16} color="#8E8E93" />
             <Text style={styles.resetDemoBtnText}>Restore Default Mobile Store Inventory</Text>
           </TouchableOpacity>
         )}
@@ -320,7 +320,7 @@ export default function SettingsScreen() {
       {/* 3. MULTIPLE USERS & ROLES */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
-          <Ionicons name="people-outline" size={20} color="#0F766E" />
+          <Ionicons name="people-outline" size={20} color="#007AFF" />
           <Text style={styles.cardTitle}>Users & Role Permissions</Text>
         </View>
         <Text style={styles.cardDesc}>
@@ -384,7 +384,7 @@ export default function SettingsScreen() {
       {/* 4. LIVE SYNC ACROSS DEVICES & OFFLINE SUPPORT */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
-          <Ionicons name="cloud-done-outline" size={20} color="#0F766E" />
+          <Ionicons name="cloud-done-outline" size={20} color="#007AFF" />
           <Text style={styles.cardTitle}>Live Sync & Offline Queue</Text>
         </View>
         <Text style={styles.cardDesc}>
@@ -433,8 +433,8 @@ export default function SettingsScreen() {
           <Switch
             value={autoSync}
             onValueChange={setAutoSync}
-            trackColor={{ false: '#CBD5E1', true: '#99F6E4' }}
-            thumbColor={autoSync ? '#0F766E' : '#64748B'}
+            trackColor={{ false: '#D1D1D6', true: '#99F6E4' }}
+            thumbColor={autoSync ? '#007AFF' : '#8E8E93'}
           />
         </View>
 
@@ -456,7 +456,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
   },
   content: {
     padding: 12,
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
   },
   cardDemoLocked: {
     borderColor: '#FECACA',
@@ -482,11 +482,11 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
   },
   cardDesc: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#8E8E93',
     marginTop: 4,
     marginBottom: 14,
     lineHeight: 17,
@@ -495,21 +495,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
     marginBottom: 12,
   },
   roleLabel: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8E8E93',
   },
   roleValue: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
     marginTop: 2,
   },
   switchStaffBtn: {
@@ -545,22 +545,22 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: '#3A3A3C',
     marginBottom: 5,
   },
   input: {
     height: 42,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D1D1D6',
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 13,
-    color: '#0F172A',
+    color: '#1C1C1E',
     marginBottom: 10,
     backgroundColor: '#FFFFFF',
   },
   unlockBtn: {
-    backgroundColor: '#0F766E',
+    backgroundColor: '#007AFF',
     height: 42,
     paddingHorizontal: 14,
     borderRadius: 8,
@@ -586,16 +586,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   secondaryBtn: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F2F2F7',
     height: 42,
     paddingHorizontal: 14,
     borderRadius: 8,
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D1D1D6',
   },
   secondaryBtnText: {
-    color: '#334155',
+    color: '#3A3A3C',
     fontWeight: '700',
     fontSize: 12,
   },
@@ -606,20 +606,20 @@ const styles = StyleSheet.create({
   },
   syncStatBox: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F2F2F7',
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E5EA',
   },
   syncStatLabel: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8E8E93',
   },
   syncStatVal: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1C1C1E',
     marginTop: 2,
   },
   toggleRow: {
@@ -631,13 +631,13 @@ const styles = StyleSheet.create({
   toggleLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#334155',
+    color: '#3A3A3C',
   },
   primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F766E',
+    backgroundColor: '#007AFF',
     paddingVertical: 13,
     borderRadius: 10,
     marginTop: 8,
@@ -652,15 +652,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0FDFA',
+    backgroundColor: '#EAF3FF',
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#0F766E',
+    borderColor: '#007AFF',
     gap: 8,
   },
   secondaryFullBtnText: {
-    color: '#0F766E',
+    color: '#007AFF',
     fontWeight: '800',
     fontSize: 13,
   },
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   resetDemoBtnText: {
-    color: '#64748B',
+    color: '#8E8E93',
     fontSize: 12,
     fontWeight: '600',
   },
