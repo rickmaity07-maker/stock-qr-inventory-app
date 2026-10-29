@@ -248,17 +248,22 @@
       selectedProduct: null,
       activeTargetIdx: 0,
       products: [
-        { id: 'prod-1', name: 'iPhone 16 Pro Max 256GB (Natural Titanium)', category: 'Smartphones', qrCode: 'STK-IP16-1001', buyingPrice: 890.00, sellingPrice: 1149.00, quantity: 9, minStockLevel: 4, expiryDate: '2027-10-15' },
-        { id: 'prod-2', name: 'Samsung Galaxy S24 Ultra 512GB (Titanium Gray)', category: 'Smartphones', qrCode: 'STK-S24U-1002', buyingPrice: 780.00, sellingPrice: 1049.00, quantity: 2, minStockLevel: 5, expiryDate: '2027-09-30' },
-        { id: 'prod-3', name: 'Apple 20W USB-C Fast Power Adapter (Original)', category: 'Chargers & Cables', qrCode: 'STK-AP20-1003', buyingPrice: 9.50, sellingPrice: 19.99, quantity: 6, minStockLevel: 10, expiryDate: '2026-11-05' },
-        { id: 'prod-4', name: 'AirPods Pro (2nd Gen) MagSafe USB-C', category: 'Audio & Earbuds', qrCode: 'STK-AIRP-1004', buyingPrice: 155.00, sellingPrice: 219.00, quantity: 14, minStockLevel: 5, expiryDate: '2027-08-20' },
-        { id: 'prod-5', name: '9H Privacy Tempered Glass (iPhone 15/16 Pro Max)', category: 'Screen Protectors', qrCode: 'STK-GLAS-1005', buyingPrice: 1.80, sellingPrice: 12.99, quantity: 3, minStockLevel: 15, expiryDate: '2026-11-01' },
-        { id: 'prod-6', name: 'Anker MagGo 10,000mAh Qi2 Magnetic Power Bank', category: 'Power Banks', qrCode: 'STK-ANKR-1006', buyingPrice: 28.00, sellingPrice: 54.99, quantity: 12, minStockLevel: 5, expiryDate: '2027-05-10' }
+        { id: 'prod-1', name: 'iPhone 16 Pro Max 256GB (Natural Titanium)', category: 'Smartphones', qrCode: 'STK-IP16-1001', factoryBarcode: '0195949821905', buyingPrice: 890.00, sellingPrice: 1149.00, quantity: 9, minStockLevel: 4, expiryDate: '2027-10-15' },
+        { id: 'prod-2', name: 'Samsung Galaxy S24 Ultra 512GB (Titanium Gray)', category: 'Smartphones', qrCode: 'STK-S24U-1002', factoryBarcode: '8806095395425', buyingPrice: 780.00, sellingPrice: 1049.00, quantity: 2, minStockLevel: 5, expiryDate: '2027-09-30' },
+        { id: 'prod-3', name: 'Apple 20W USB-C Fast Power Adapter (Original)', category: 'Chargers & Cables', qrCode: 'STK-AP20-1003', factoryBarcode: '0194252157008', buyingPrice: 9.50, sellingPrice: 19.99, quantity: 6, minStockLevel: 10, expiryDate: '2026-11-05' },
+        { id: 'prod-4', name: 'AirPods Pro (2nd Gen) MagSafe USB-C', category: 'Audio & Earbuds', qrCode: 'STK-AIRP-1004', factoryBarcode: '0195949052484', buyingPrice: 155.00, sellingPrice: 219.00, quantity: 14, minStockLevel: 5, expiryDate: '2027-08-20' },
+        { id: 'prod-5', name: '9H Privacy Tempered Glass (iPhone 15/16 Pro Max)', category: 'Screen Protectors', qrCode: 'STK-GLAS-1005', factoryBarcode: '6932145600129', buyingPrice: 1.80, sellingPrice: 12.99, quantity: 3, minStockLevel: 15, expiryDate: '2026-11-01' },
+        { id: 'prod-6', name: 'Anker MagGo 10,000mAh Qi2 Magnetic Power Bank', category: 'Power Banks', qrCode: 'STK-ANKR-1006', factoryBarcode: '0194644182731', buyingPrice: 28.00, sellingPrice: 54.99, quantity: 12, minStockLevel: 5, expiryDate: '2027-05-10' },
+        { id: 'prod-7', name: 'MagSafe Shockproof Clear Case (iPhone 16 Pro)', category: 'Cases & Covers', qrCode: 'STK-CASE-1007', factoryBarcode: '6941023489102', buyingPrice: 3.20, sellingPrice: 16.99, quantity: 22, minStockLevel: 8, expiryDate: '2027-12-31' },
+        { id: 'prod-8', name: 'Braided 60W USB-C to USB-C Fast Cable (2m)', category: 'Chargers & Cables', qrCode: 'STK-USBC-1008', factoryBarcode: '6950192837465', buyingPrice: 2.10, sellingPrice: 11.99, quantity: 30, minStockLevel: 10, expiryDate: '2027-12-31' }
       ],
       transactions: [
-        { id: 'tx-1', productId: 'prod-1', productName: 'iPhone 16 Pro Max 256GB (Natural Titanium)', type: 'SALE', quantity: 5, unitBuyingPrice: 890.00, unitSellingPrice: 1149.00, timestamp: '2026-10-27' },
-        { id: 'tx-2', productId: 'prod-2', productName: 'Samsung Galaxy S24 Ultra 512GB (Titanium Gray)', type: 'SALE', quantity: 4, unitBuyingPrice: 780.00, unitSellingPrice: 1049.00, timestamp: '2026-10-25' },
-        { id: 'tx-3', productId: 'prod-4', productName: 'AirPods Pro (2nd Gen) MagSafe USB-C', type: 'SALE', quantity: 9, unitBuyingPrice: 155.00, unitSellingPrice: 219.00, timestamp: '2026-10-21' }
+        { id: 'tx-101', productId: 'prod-1', productName: 'iPhone 16 Pro Max 256GB (Natural Titanium)', type: 'SALE', quantity: 5, unitBuyingPrice: 890.00, unitSellingPrice: 1149.00, timestamp: '2026-10-27' },
+        { id: 'tx-102', productId: 'prod-2', productName: 'Samsung Galaxy S24 Ultra 512GB (Titanium Gray)', type: 'SALE', quantity: 4, unitBuyingPrice: 780.00, unitSellingPrice: 1049.00, timestamp: '2026-10-24' },
+        { id: 'tx-103', productId: 'prod-4', productName: 'AirPods Pro (2nd Gen) MagSafe USB-C', type: 'SALE', quantity: 9, unitBuyingPrice: 155.00, unitSellingPrice: 219.00, timestamp: '2026-10-21' },
+        { id: 'tx-104', productId: 'prod-3', productName: 'Apple 20W USB-C Fast Power Adapter (Original)', type: 'SALE', quantity: 28, unitBuyingPrice: 9.50, unitSellingPrice: 19.99, timestamp: '2026-10-19' },
+        { id: 'tx-105', productId: 'prod-5', productName: '9H Privacy Tempered Glass (iPhone 15/16 Pro Max)', type: 'SALE', quantity: 42, unitBuyingPrice: 1.80, unitSellingPrice: 12.99, timestamp: '2026-10-14' },
+        { id: 'tx-106', productId: 'prod-7', productName: 'MagSafe Shockproof Clear Case (iPhone 16 Pro)', type: 'SALE', quantity: 25, unitBuyingPrice: 3.20, unitSellingPrice: 16.99, timestamp: '2026-10-11' }
       ]
     };
 
@@ -394,10 +399,24 @@
       lastScanTime = now;
 
       const clean = String(rawCode || '').trim().toUpperCase();
-      const matched =
-        state.products.find(
-          p => p.qrCode.toUpperCase() === clean || p.name.toUpperCase() === clean
-        ) || state.products[state.activeTargetIdx % state.products.length];
+      let matched = state.products.find(
+        p =>
+          p.qrCode.toUpperCase() === clean ||
+          clean.includes(p.qrCode.toUpperCase()) ||
+          p.name.toUpperCase() === clean ||
+          (p.factoryBarcode && p.factoryBarcode.toUpperCase() === clean)
+      );
+      if (!matched) {
+        const slotMatch = clean.match(/100([1-8])/);
+        if (slotMatch) {
+          matched = state.products.find(
+            p => p.qrCode.endsWith(`100${slotMatch[1]}`) || p.id === `prod-${slotMatch[1]}`
+          );
+        }
+      }
+      if (!matched) {
+        matched = state.products[state.activeTargetIdx % state.products.length];
+      }
 
       if (matched) {
         playScanBeep();

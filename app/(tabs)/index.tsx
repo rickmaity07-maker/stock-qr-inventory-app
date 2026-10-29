@@ -68,6 +68,7 @@ export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraActive, setCameraActive] = useState<boolean>(true);
   const [scannedProduct, setScannedProduct] = useState<Product | null>(null);
+  const [enlargedQrProduct, setEnlargedQrProduct] = useState<Product | null>(null);
   const [unrecognizedBarcode, setUnrecognizedBarcode] = useState<string | null>(null);
 
   // Sell / Restock form states
@@ -362,13 +363,18 @@ export default function ScannerScreen() {
                 style={styles.quickProductRow}
                 onPress={() => openProductActionSheet(item)}
               >
+                <TouchableOpacity
+                  onPress={() => setEnlargedQrProduct(item)}
+                  style={{ marginRight: 10, alignItems: 'center' }}
+                >
+                  <DesignerQrCode value={item.qrCode} size={46} />
+                </TouchableOpacity>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.quickProductName} numberOfLines={1}>
                     {item.name}
                   </Text>
-                  <Text style={styles.quickProductCode}>
-                    QR: {item.qrCode}
-                    {item.factoryBarcode ? ` • Barcode: ${item.factoryBarcode}` : ''}
+                  <Text style={[styles.quickProductCode, { color: '#0F766E', fontWeight: '700' }]}>
+                    ● QR Connected: {item.qrCode}
                   </Text>
                 </View>
                 <View style={styles.quickRightMeta}>
@@ -679,6 +685,38 @@ export default function ScannerScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ENLARGED HIGH-CONTRAST QR MODAL FOR PHONE-TO-PHONE SCANNING */}
+      <Modal
+        visible={Boolean(enlargedQrProduct)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEnlargedQrProduct(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            {enlargedQrProduct && (
+              <>
+                <View style={[styles.modalTopBanner, { backgroundColor: '#0F766E' }]}>
+                  <Text style={styles.modalBannerTitle}>Connected Product QR Sticker</Text>
+                  <TouchableOpacity onPress={() => setEnlargedQrProduct(null)}>
+                    <Ionicons name="close" size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+                <View style={{ padding: 22, alignItems: 'center' }}>
+                  <Text style={[styles.scannedItemName, { textAlign: 'center', marginBottom: 12 }]}>
+                    {enlargedQrProduct.name}
+                  </Text>
+                  <DesignerQrCode value={enlargedQrProduct.qrCode} size={210} />
+                  <Text style={[styles.infoQrCaption, { marginTop: 12, fontWeight: '800' }]}>
+                    {enlargedQrProduct.qrCode} • £{enlargedQrProduct.sellingPrice.toFixed(2)}
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>

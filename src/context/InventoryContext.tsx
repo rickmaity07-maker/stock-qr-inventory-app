@@ -21,13 +21,26 @@ import {
 } from '../services/supabase';
 
 const STORAGE_KEYS = {
-  PRODUCTS: '@stockqr_products_v2_mobile',
-  TRANSACTIONS: '@stockqr_transactions_v2_mobile',
-  ROLE: '@stockqr_role_v2_mobile',
-  OWNER_PIN: '@stockqr_owner_pin_v2_mobile',
-  CLOUD_CONFIG: '@stockqr_cloud_config_v2_mobile',
-  CLIENT_DEMO_LOCK: '@stockqr_client_demo_lock_v2',
+  PRODUCTS: '@stockqr_products_v4_mobile_only',
+  TRANSACTIONS: '@stockqr_transactions_v4_mobile_only',
+  ROLE: '@stockqr_role_v4_mobile_only',
+  OWNER_PIN: '@stockqr_owner_pin_v4_mobile_only',
+  CLOUD_CONFIG: '@stockqr_cloud_config_v4_mobile_only',
+  CLIENT_DEMO_LOCK: '@stockqr_client_demo_lock_v4',
 };
+
+const LEGACY_GROCERY_PATTERN =
+  /olive|basmati|rice|honey|milk|yogurt|almond|chocolate|matcha|tea|cheese|pantry|grains|dairy|sweeteners/i;
+
+function isCleanMobileCatalog(list: unknown): list is Product[] {
+  if (!Array.isArray(list) || list.length < 8) return false;
+  return !list.some(
+    (item: any) =>
+      LEGACY_GROCERY_PATTERN.test(String(item?.name || '')) ||
+      LEGACY_GROCERY_PATTERN.test(String(item?.category || '')) ||
+      LEGACY_GROCERY_PATTERN.test(String(item?.qrCode || ''))
+  );
+}
 
 // Replaced automatically by CI when building the locked Client Demo APK
 export const DEFAULT_CLIENT_DEMO_LOCKED = false;
@@ -131,8 +144,37 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             AsyncStorage.getItem(STORAGE_KEYS.CLIENT_DEMO_LOCK),
           ]);
 
-        if (savedProducts) setProducts(JSON.parse(savedProducts));
-        if (savedTx) setTransactions(JSON.parse(savedTx));
+        if (savedProducts) {
+          const parsedProds = JSON.parse(savedProducts);
+          if (isCleanMobileCatalog(parsedProds)) {
+            setProducts(parsedProds);
+          } else {
+            setProducts(INITIAL_PRODUCTS);
+            await AsyncStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
+          }
+        } else {
+          await AsyncStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
+        }
+        if (savedTx) {
+          const parsedTx = JSON.parse(savedTx);
+          const hasLegacyTx =
+            Array.isArray(parsedTx) &&
+            parsedTx.some((t: any) => LEGACY_GROCERY_PATTERN.test(String(t?.productName || '')));
+          if (Array.isArray(parsedTx) && !hasLegacyTx) {
+            setTransactions(parsedTx);
+          } else {
+            setTransactions(INITIAL_TRANSACTIONS);
+            await AsyncStorage.setItem(
+              STORAGE_KEYS.TRANSACTIONS,
+              JSON.stringify(INITIAL_TRANSACTIONS)
+            );
+          }
+        } else {
+          await AsyncStorage.setItem(
+            STORAGE_KEYS.TRANSACTIONS,
+            JSON.stringify(INITIAL_TRANSACTIONS)
+          );
+        }
         if (savedRole === 'OWNER' || savedRole === 'STAFF') setRole(savedRole);
         if (savedPin) setOwnerPin(savedPin);
         if (savedCloud) setCloudConfig(JSON.parse(savedCloud));
@@ -361,11 +403,28 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const findProductByCode = useCallback(
     (scannedCode: string): Product | undefined => {
       const clean = scannedCode.trim().toUpperCase();
-      return products.find(
+      if (!clean) return undefined;
+      // 1. Exact QR Code, Factory Barcode, or Product Name match
+      const direct = products.find(
         (p) =>
           p.qrCode.toUpperCase() === clean ||
+          clean.includes(p.qrCode.toUpperCase()) ||
+          p.name.toUpperCase() === clean ||
           (p.factoryBarcode && p.factoryBarcode.trim().toUpperCase() === clean)
       );
+      if (direct) return direct;
+
+      // 2. Pre-connected slot suffix match (-1001 to -1008) so cross-device QR codes are always connected
+      const slotMatch = clean.match(/100([1-8])/);
+      if (slotMatch) {
+        const slotSuffix = `100${slotMatch[1]}`;
+        const bySlot = products.find(
+          (p) => p.qrCode.endsWith(slotSuffix) || p.id === `prod-${slotMatch[1]}`
+        );
+        if (bySlot) return bySlot;
+      }
+
+      return undefined;
     },
     [products]
   );

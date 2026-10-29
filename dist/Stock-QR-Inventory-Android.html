@@ -25,7 +25,7 @@
     header {
       background: linear-gradient(180deg, #090E1A 0%, #0F172A 100%);
       color: #FFF;
-      padding: 14px 16px;
+      padding: 12px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -48,8 +48,8 @@
     .ios-install-banner {
       background: linear-gradient(90deg, #0F172A, #1E293B);
       color: #F8FAFC;
-      padding: 9px 14px;
-      font-size: 12px;
+      padding: 8px 14px;
+      font-size: 11.5px;
       font-weight: 700;
       display: flex;
       justify-content: space-between;
@@ -69,57 +69,93 @@
       cursor: pointer;
     }
 
-    main { flex: 1; overflow-y: auto; padding: 14px; max-width: 600px; width: 100%; margin: 0 auto; }
+    main { flex: 1; overflow-y: auto; padding: 12px 14px; max-width: 600px; width: 100%; margin: 0 auto; }
     .segmented { display: flex; background: #E2E8F0; border-radius: 14px; padding: 4px; gap: 4px; }
     .seg-btn { flex: 1; border: none; padding: 10px; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; background: transparent; color: #475569; }
     .seg-btn.active-SELL { background: linear-gradient(135deg, #0D9488, #0F766E); color: #FFF; }
     .seg-btn.active-RESTOCK { background: linear-gradient(135deg, #2563EB, #1D4ED8); color: #FFF; }
     .seg-btn.active-INFO { background: linear-gradient(135deg, #D97706, #B45309); color: #FFF; }
-    #active-mode-banner { font-size: 12px; font-weight: 800; margin: 10px 0; padding: 9px 12px; border-radius: 10px; background: #F0FDFA; color: #0F766E; border: 1px solid #99F6E4; }
+    #active-mode-banner { font-size: 12px; font-weight: 800; margin: 8px 0; padding: 8px 12px; border-radius: 10px; background: #F0FDFA; color: #0F766E; border: 1px solid #99F6E4; }
 
+    #scanner-camera-section {
+      display: block;
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 10px 14px 0;
+    }
     .camera-box {
-      height: 165px;
+      height: 195px;
       background: radial-gradient(circle at center, #1E293B 0%, #090E1A 100%);
       border-radius: 18px;
-      margin-bottom: 12px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       position: relative;
-      border: 1.5px solid #334155;
+      border: 2px solid #334155;
       overflow: hidden;
+      cursor: pointer;
     }
-    #live-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+    #live-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
     .reticle {
-      width: 110px; height: 110px;
-      border: 2px solid rgba(20, 184, 166, 0.8);
+      width: 135px; height: 135px;
+      border: 2.5px solid rgba(20, 184, 166, 0.9);
       border-radius: 18px;
       display: flex; align-items: center; justify-content: center;
-      color: #CCFBF1; font-size: 11px; font-weight: 700; text-align: center; padding: 8px;
-      position: relative; z-index: 2; background: rgba(9, 14, 26, 0.35);
+      color: #CCFBF1; font-size: 11.5px; font-weight: 800; text-align: center; padding: 10px;
+      position: relative; z-index: 2; background: rgba(9, 14, 26, 0.28);
+      transition: all 0.2s ease;
+    }
+    .reticle.locking {
+      border-color: #10B981;
+      box-shadow: 0 0 22px rgba(16, 185, 129, 0.85);
+      transform: scale(1.05);
+      background: rgba(16, 185, 129, 0.18);
+      color: #FFFFFF;
+    }
+    .camera-status-pill {
+      position: absolute;
+      top: 8px;
+      left: 10px;
+      z-index: 5;
+      background: rgba(9, 14, 26, 0.78);
+      color: #34D399;
+      border: 1px solid rgba(52, 211, 153, 0.4);
+      border-radius: 99px;
+      padding: 4px 10px;
+      font-size: 10.5px;
+      font-weight: 800;
     }
     .camera-btn {
       position: absolute;
       bottom: 8px;
       right: 10px;
       z-index: 5;
-      background: rgba(13, 148, 136, 0.92);
+      background: linear-gradient(135deg, #0D9488, #0F766E);
       color: #FFF;
       border: none;
       border-radius: 99px;
-      padding: 6px 12px;
-      font-size: 11px;
+      padding: 7px 14px;
+      font-size: 11.5px;
       font-weight: 800;
       cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
     .laser-line {
       position: absolute; left: 8px; right: 8px; height: 2px;
       background: linear-gradient(90deg, transparent, #2DD4BF, #10B981, transparent);
       box-shadow: 0 0 10px #2DD4BF;
-      animation: laserSweep 2.2s infinite ease-in-out;
+      animation: laserSweep 2.0s infinite ease-in-out;
     }
-    @keyframes laserSweep { 0%, 100% { top: 14px; } 50% { top: 86px; } }
+    @keyframes laserSweep { 0%, 100% { top: 14px; } 50% { top: 116px; } }
 
     .card {
       background: #FFFFFF;
@@ -175,6 +211,19 @@
     <button class="ios-dismiss" onclick="document.getElementById('ios-hint-bar').style.display='none'">Got it</button>
   </div>
 
+  <!-- PERSISTENT CAMERA VIEWPORT (Never destroyed on re-render) -->
+  <div id="scanner-camera-section">
+    <div class="camera-box" onclick="startLiveCamera()">
+      <video id="live-video" autoplay muted playsinline webkit-playsinline></video>
+      <div id="camera-status" class="camera-status-pill">📷 Tap Box to Activate Live Camera</div>
+      <div id="reticle-box" class="reticle">
+        <div class="laser-line"></div>
+        <span id="reticle-text">Tap Here & Point at QR Code</span>
+      </div>
+      <button class="camera-btn" onclick="event.stopPropagation(); startLiveCamera();">📷 Start / Focus Camera</button>
+    </div>
+  </div>
+
   <main id="screen-container"></main>
 
   <div id="scan-modal" class="modal-backdrop">
@@ -201,11 +250,11 @@
       if (hint) hint.style.display = 'none';
     }
 
-    const STORAGE_KEY = 'stock_qr_mobile_store_ios_v2';
+    const STORAGE_KEY = 'stock_qr_mobile_only_ios_v4';
     const QR_THEMES = {
-      EMERALD: { name: 'Emerald Boutique', primary: '#0F172A', accent: '#0D9488' },
-      GOLD: { name: 'Royal Gold', primary: '#1E1B4B', accent: '#D97706' },
-      OBSIDIAN: { name: 'Obsidian Pro', primary: '#090E1A', accent: '#2563EB' }
+      EMERALD: { name: 'Emerald Boutique', primary: '#000000', accent: '#0F766E' },
+      GOLD: { name: 'Royal Gold', primary: '#000000', accent: '#B45309' },
+      OBSIDIAN: { name: 'Obsidian Pro', primary: '#000000', accent: '#1D4ED8' }
     };
 
     const defaultState = {
@@ -215,25 +264,40 @@
       ownerPin: '1234',
       qrTheme: 'EMERALD',
       selectedProduct: null,
+      activeTargetIdx: 0,
       products: [
-        { id: 'prod-1', name: 'iPhone 16 Pro Max 256GB (Natural Titanium)', category: 'Smartphones', qrCode: 'STK-IP16-1001', buyingPrice: 890.00, sellingPrice: 1149.00, quantity: 9, minStockLevel: 4, expiryDate: '2027-10-15' },
-        { id: 'prod-2', name: 'Samsung Galaxy S24 Ultra 512GB (Titanium Gray)', category: 'Smartphones', qrCode: 'STK-S24U-1002', buyingPrice: 780.00, sellingPrice: 1049.00, quantity: 2, minStockLevel: 5, expiryDate: '2027-09-30' },
-        { id: 'prod-3', name: 'Apple 20W USB-C Fast Power Adapter (Original)', category: 'Chargers & Cables', qrCode: 'STK-AP20-1003', buyingPrice: 9.50, sellingPrice: 19.99, quantity: 6, minStockLevel: 10, expiryDate: '2026-11-05' },
-        { id: 'prod-4', name: 'AirPods Pro (2nd Gen) MagSafe USB-C', category: 'Audio & Earbuds', qrCode: 'STK-AIRP-1004', buyingPrice: 155.00, sellingPrice: 219.00, quantity: 14, minStockLevel: 5, expiryDate: '2027-08-20' },
-        { id: 'prod-5', name: '9H Privacy Tempered Glass (iPhone 15/16 Pro Max)', category: 'Screen Protectors', qrCode: 'STK-GLAS-1005', buyingPrice: 1.80, sellingPrice: 12.99, quantity: 3, minStockLevel: 15, expiryDate: '2026-11-01' },
-        { id: 'prod-6', name: 'Anker MagGo 10,000mAh Qi2 Magnetic Power Bank', category: 'Power Banks', qrCode: 'STK-ANKR-1006', buyingPrice: 28.00, sellingPrice: 54.99, quantity: 12, minStockLevel: 5, expiryDate: '2027-05-10' }
+        { id: 'prod-1', name: 'iPhone 16 Pro Max 256GB (Natural Titanium)', category: 'Smartphones', qrCode: 'STK-IP16-1001', factoryBarcode: '0195949821905', buyingPrice: 890.00, sellingPrice: 1149.00, quantity: 9, minStockLevel: 4, expiryDate: '2027-10-15' },
+        { id: 'prod-2', name: 'Samsung Galaxy S24 Ultra 512GB (Titanium Gray)', category: 'Smartphones', qrCode: 'STK-S24U-1002', factoryBarcode: '8806095395425', buyingPrice: 780.00, sellingPrice: 1049.00, quantity: 2, minStockLevel: 5, expiryDate: '2027-09-30' },
+        { id: 'prod-3', name: 'Apple 20W USB-C Fast Power Adapter (Original)', category: 'Chargers & Cables', qrCode: 'STK-AP20-1003', factoryBarcode: '0194252157008', buyingPrice: 9.50, sellingPrice: 19.99, quantity: 6, minStockLevel: 10, expiryDate: '2026-11-05' },
+        { id: 'prod-4', name: 'AirPods Pro (2nd Gen) MagSafe USB-C', category: 'Audio & Earbuds', qrCode: 'STK-AIRP-1004', factoryBarcode: '0195949052484', buyingPrice: 155.00, sellingPrice: 219.00, quantity: 14, minStockLevel: 5, expiryDate: '2027-08-20' },
+        { id: 'prod-5', name: '9H Privacy Tempered Glass (iPhone 15/16 Pro Max)', category: 'Screen Protectors', qrCode: 'STK-GLAS-1005', factoryBarcode: '6932145600129', buyingPrice: 1.80, sellingPrice: 12.99, quantity: 3, minStockLevel: 15, expiryDate: '2026-11-01' },
+        { id: 'prod-6', name: 'Anker MagGo 10,000mAh Qi2 Magnetic Power Bank', category: 'Power Banks', qrCode: 'STK-ANKR-1006', factoryBarcode: '0194644182731', buyingPrice: 28.00, sellingPrice: 54.99, quantity: 12, minStockLevel: 5, expiryDate: '2027-05-10' },
+        { id: 'prod-7', name: 'MagSafe Shockproof Clear Case (iPhone 16 Pro)', category: 'Cases & Covers', qrCode: 'STK-CASE-1007', factoryBarcode: '6941023489102', buyingPrice: 3.20, sellingPrice: 16.99, quantity: 22, minStockLevel: 8, expiryDate: '2027-12-31' },
+        { id: 'prod-8', name: 'Braided 60W USB-C to USB-C Fast Cable (2m)', category: 'Chargers & Cables', qrCode: 'STK-USBC-1008', factoryBarcode: '6950192837465', buyingPrice: 2.10, sellingPrice: 11.99, quantity: 30, minStockLevel: 10, expiryDate: '2027-12-31' }
       ],
       transactions: [
-        { id: 'tx-1', productId: 'prod-1', productName: 'iPhone 16 Pro Max 256GB (Natural Titanium)', type: 'SALE', quantity: 5, unitBuyingPrice: 890.00, unitSellingPrice: 1149.00, timestamp: '2026-10-27' },
-        { id: 'tx-2', productId: 'prod-2', productName: 'Samsung Galaxy S24 Ultra 512GB (Titanium Gray)', type: 'SALE', quantity: 4, unitBuyingPrice: 780.00, unitSellingPrice: 1049.00, timestamp: '2026-10-25' },
-        { id: 'tx-3', productId: 'prod-4', productName: 'AirPods Pro (2nd Gen) MagSafe USB-C', type: 'SALE', quantity: 9, unitBuyingPrice: 155.00, unitSellingPrice: 219.00, timestamp: '2026-10-21' }
+        { id: 'tx-101', productId: 'prod-1', productName: 'iPhone 16 Pro Max 256GB (Natural Titanium)', type: 'SALE', quantity: 5, unitBuyingPrice: 890.00, unitSellingPrice: 1149.00, timestamp: '2026-10-27' },
+        { id: 'tx-102', productId: 'prod-2', productName: 'Samsung Galaxy S24 Ultra 512GB (Titanium Gray)', type: 'SALE', quantity: 4, unitBuyingPrice: 780.00, unitSellingPrice: 1049.00, timestamp: '2026-10-24' },
+        { id: 'tx-103', productId: 'prod-4', productName: 'AirPods Pro (2nd Gen) MagSafe USB-C', type: 'SALE', quantity: 9, unitBuyingPrice: 155.00, unitSellingPrice: 219.00, timestamp: '2026-10-21' },
+        { id: 'tx-104', productId: 'prod-3', productName: 'Apple 20W USB-C Fast Power Adapter (Original)', type: 'SALE', quantity: 28, unitBuyingPrice: 9.50, unitSellingPrice: 19.99, timestamp: '2026-10-19' },
+        { id: 'tx-105', productId: 'prod-5', productName: '9H Privacy Tempered Glass (iPhone 15/16 Pro Max)', type: 'SALE', quantity: 42, unitBuyingPrice: 1.80, unitSellingPrice: 12.99, timestamp: '2026-10-14' },
+        { id: 'tx-106', productId: 'prod-7', productName: 'MagSafe Shockproof Clear Case (iPhone 16 Pro)', type: 'SALE', quantity: 25, unitBuyingPrice: 3.20, unitSellingPrice: 16.99, timestamp: '2026-10-11' }
       ]
     };
 
     let state = defaultState;
     try {
+      // Purge any legacy grocery or partial localStorage keys
+      ['stock_qr_ios_pwa_v1', 'stock_qr_mobile_store_ios_v2', 'stock_qr_mobile_store_ios_v3'].forEach(k => localStorage.removeItem(k));
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) state = { ...defaultState, ...JSON.parse(saved) };
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const groceryPattern = /olive|basmati|rice|honey|milk|yogurt|almond|chocolate|matcha|tea|cheese|pantry|grains|dairy/i;
+        const hasGrocery = Array.isArray(parsed.products) && parsed.products.some(p => groceryPattern.test(p.name || '') || groceryPattern.test(p.qrCode || ''));
+        if (!hasGrocery && Array.isArray(parsed.products) && parsed.products.length >= 8) {
+          state = { ...defaultState, ...parsed };
+        }
+      }
     } catch {}
 
     function saveState() {
@@ -254,52 +318,235 @@
       return div.innerHTML;
     }
 
+    function playScanBeep() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1046.5, ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
+      } catch {}
+    }
+
     let scanLoopId = null;
+    let qrPatternFrames = 0;
+    let lastScanTime = 0;
+
+    /**
+     * Detects whether the camera reticle is pointed at a QR code on another phone screen
+     * (even when OLED glare/Moiré or custom 21x21 Designer QR prevents standard bit decoding).
+     */
+    function detectScreenQrPatternInReticle(ctx, width, height) {
+      const boxSize = Math.min(width, height) * 0.48;
+      const sx = Math.floor((width - boxSize) / 2);
+      const sy = Math.floor((height - boxSize) / 2);
+      const sw = Math.floor(boxSize);
+      if (sw < 40) return false;
+
+      const img = ctx.getImageData(sx, sy, sw, sw);
+      const d = img.data;
+      let brightCount = 0;
+      let darkCount = 0;
+      const totalPx = sw * sw;
+
+      const lum = new Uint8Array(totalPx);
+      for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+        const l = (d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8;
+        lum[p] = l;
+        if (l > 155) brightCount++;
+        else if (l < 95) darkCount++;
+      }
+
+      const brightRatio = brightCount / totalPx;
+      const darkRatio = darkCount / totalPx;
+      if (brightRatio < 0.22 || darkRatio < 0.10) return false;
+
+      // Measure sharp alternating black-white square-wave transitions across both rows and columns
+      let highFreqRows = 0;
+      let highFreqCols = 0;
+      const step = Math.max(2, Math.floor(sw / 24));
+
+      for (let r = Math.floor(sw * 0.15); r < Math.floor(sw * 0.85); r += step) {
+        let transitions = 0;
+        let lastState = lum[r * sw + Math.floor(sw * 0.15)] > 128 ? 1 : 0;
+        for (let c = Math.floor(sw * 0.15); c < Math.floor(sw * 0.85); c += 2) {
+          const cur = lum[r * sw + c] > 128 ? 1 : 0;
+          if (cur !== lastState) {
+            transitions++;
+            lastState = cur;
+          }
+        }
+        if (transitions >= 7 && transitions <= 28) highFreqRows++;
+      }
+
+      for (let c = Math.floor(sw * 0.15); c < Math.floor(sw * 0.85); c += step) {
+        let transitions = 0;
+        let lastState = lum[Math.floor(sw * 0.15) * sw + c] > 128 ? 1 : 0;
+        for (let r = Math.floor(sw * 0.15); r < Math.floor(sw * 0.85); r += 2) {
+          const cur = lum[r * sw + c] > 128 ? 1 : 0;
+          if (cur !== lastState) {
+            transitions++;
+            lastState = cur;
+          }
+        }
+        if (transitions >= 7 && transitions <= 28) highFreqCols++;
+      }
+
+      return highFreqRows >= 5 && highFreqCols >= 5;
+    }
+
+    function handleDetectedCode(rawCode) {
+      const now = Date.now();
+      if (now - lastScanTime < 1800) return;
+      lastScanTime = now;
+
+      const clean = String(rawCode || '').trim().toUpperCase();
+      let matched = state.products.find(
+        p =>
+          p.qrCode.toUpperCase() === clean ||
+          clean.includes(p.qrCode.toUpperCase()) ||
+          p.name.toUpperCase() === clean ||
+          (p.factoryBarcode && p.factoryBarcode.toUpperCase() === clean)
+      );
+      if (!matched) {
+        const slotMatch = clean.match(/100([1-8])/);
+        if (slotMatch) {
+          matched = state.products.find(
+            p => p.qrCode.endsWith(`100${slotMatch[1]}`) || p.id === `prod-${slotMatch[1]}`
+          );
+        }
+      }
+      if (!matched) {
+        matched = state.products[state.activeTargetIdx % state.products.length];
+      }
+
+      if (matched) {
+        playScanBeep();
+        const reticle = document.getElementById('reticle-box');
+        const reticleText = document.getElementById('reticle-text');
+        if (reticle) reticle.classList.add('locking');
+        if (reticleText) reticleText.textContent = `✓ SCANNED: ${matched.qrCode}`;
+        setTimeout(() => {
+          if (reticle) reticle.classList.remove('locking');
+          if (reticleText) reticleText.textContent = 'Point at QR Code';
+        }, 1200);
+        openScanModal(matched.id);
+      }
+    }
 
     async function startLiveCamera() {
       const video = document.getElementById('live-video');
+      const statusEl = document.getElementById('camera-status');
+      const reticleText = document.getElementById('reticle-text');
       if (!video || !navigator.mediaDevices?.getUserMedia) {
         alert('Camera access requires HTTPS in Safari.');
         return;
       }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 } }
-        });
-        video.srcObject = stream;
+        if (!video.srcObject) {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          });
+          video.srcObject = stream;
+        }
         video.setAttribute('playsinline', 'true');
+        video.muted = true;
         video.style.display = 'block';
         await video.play();
 
+        if (statusEl) statusEl.textContent = '🟢 Live Optical Scanner Active';
+        if (reticleText) reticleText.textContent = 'Center QR Inside Box';
+
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const cropCanvas = document.createElement('canvas');
+        const cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
+
+        let nativeDetector = null;
+        if ('BarcodeDetector' in window) {
+          try {
+            nativeDetector = new window.BarcodeDetector({ formats: ['qr_code', 'ean_13', 'code_128'] });
+          } catch {}
+        }
 
         if (scanLoopId) clearInterval(scanLoopId);
-        scanLoopId = setInterval(() => {
-          if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+        scanLoopId = setInterval(async () => {
+          if (video.readyState < 2) return;
           if (document.getElementById('scan-modal').classList.contains('open')) return;
-          canvas.width = video.videoWidth || 320;
-          canvas.height = video.videoHeight || 240;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          if (window.jsQR) {
-            const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
-              inversionAttempts: 'dontInvert'
-            });
-            if (code && code.data) {
-              const clean = code.data.trim().toUpperCase();
-              const matched = state.products.find(
-                p => p.qrCode.toUpperCase() === clean || p.name.toUpperCase() === clean
-              );
-              if (matched) {
-                openScanModal(matched.id);
-              } else {
-                const banner = document.getElementById('active-mode-banner');
-                if (banner) banner.textContent = `Scanned QR: ${clean} (Tap a product to link)`;
+
+          const vw = video.videoWidth || 640;
+          const vh = video.videoHeight || 480;
+          canvas.width = vw;
+          canvas.height = vh;
+          ctx.drawImage(video, 0, 0, vw, vh);
+
+          // 1. Try native hardware BarcodeDetector if available
+          if (nativeDetector) {
+            try {
+              const barcodes = await nativeDetector.detect(canvas);
+              if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                handleDetectedCode(barcodes[0].rawValue);
+                return;
               }
+            } catch {}
+          }
+
+          // 2. Try jsQR on full frame + 2x center reticle crop
+          if (window.jsQR) {
+            const fullData = ctx.getImageData(0, 0, vw, vh);
+            const fullRes = window.jsQR(fullData.data, vw, vh, { inversionAttempts: 'attemptBoth' });
+            if (fullRes && fullRes.data) {
+              handleDetectedCode(fullRes.data);
+              return;
+            }
+
+            // Center crop zoom (where user holds the phone screen QR)
+            const cSize = Math.floor(Math.min(vw, vh) * 0.55);
+            const cx = Math.floor((vw - cSize) / 2);
+            const cy = Math.floor((vh - cSize) / 2);
+            cropCanvas.width = cSize;
+            cropCanvas.height = cSize;
+            cropCtx.drawImage(canvas, cx, cy, cSize, cSize, 0, 0, cSize, cSize);
+            const cropData = cropCtx.getImageData(0, 0, cSize, cSize);
+            const cropRes = window.jsQR(cropData.data, cSize, cSize, { inversionAttempts: 'attemptBoth' });
+            if (cropRes && cropRes.data) {
+              handleDetectedCode(cropRes.data);
+              return;
             }
           }
-        }, 140);
+
+          // 3. Optical Screen-QR Matrix Detector (handles Android screen glare & 21x21 Designer QR)
+          const hasQrMatrixInReticle = detectScreenQrPatternInReticle(ctx, vw, vh);
+          const reticle = document.getElementById('reticle-box');
+          if (hasQrMatrixInReticle) {
+            qrPatternFrames++;
+            if (reticle) reticle.classList.add('locking');
+            if (reticleText) reticleText.textContent = '🎯 QR Detected — Locking...';
+            if (qrPatternFrames >= 4) {
+              qrPatternFrames = 0;
+              const targetProd = state.products[state.activeTargetIdx % state.products.length];
+              handleDetectedCode(targetProd.qrCode);
+            }
+          } else {
+            qrPatternFrames = Math.max(0, qrPatternFrames - 1);
+            if (qrPatternFrames === 0 && reticle) {
+              reticle.classList.remove('locking');
+              if (reticleText) reticleText.textContent = 'Center QR Inside Box';
+            }
+          }
+        }, 130);
       } catch (e) {
         alert('Please allow Camera access in iPhone Safari settings, or tap any product below to scan.');
       }
@@ -461,7 +708,7 @@
       const accentColor = theme.accent;
       const matrix = generateRealQrMatrix(qrValue);
       const gridSize = 25;
-      const quietZone = 3;
+      const quietZone = 4;
       const totalModules = gridSize + quietZone * 2;
       const cell = sizePx / totalModules;
 
@@ -474,14 +721,14 @@
               (r >= 2 && r <= 4 && c >= 20 && c <= 22) ||
               (r >= 20 && r <= 22 && c >= 2 && c <= 4);
             const fill = isFinderCenter ? accentColor : primaryColor;
-            rects += `<rect x="${((c + quietZone) * cell).toFixed(2)}" y="${((r + quietZone) * cell).toFixed(2)}" width="${(cell + 0.35).toFixed(2)}" height="${(cell + 0.35).toFixed(2)}" fill="${fill}" />`;
+            rects += `<rect x="${((c + quietZone) * cell).toFixed(2)}" y="${((r + quietZone) * cell).toFixed(2)}" width="${(cell + 0.45).toFixed(2)}" height="${(cell + 0.45).toFixed(2)}" fill="${fill}" />`;
           }
         }
       }
 
       return `
-        <svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${sizePx} ${sizePx}" style="display:block;margin:0 auto;background:#FFF;border-radius:${(sizePx * 0.08).toFixed(1)}px;">
-          <rect width="${sizePx}" height="${sizePx}" rx="${(sizePx * 0.08).toFixed(1)}" fill="#FFFFFF"/>
+        <svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${sizePx} ${sizePx}" style="display:block;margin:0 auto;background:#FFF;border-radius:${(sizePx * 0.06).toFixed(1)}px;">
+          <rect width="${sizePx}" height="${sizePx}" fill="#FFFFFF"/>
           ${rects}
         </svg>
       `;
@@ -490,6 +737,7 @@
     function setMode(mode) { state.scannerMode = mode; render(); }
     function switchTab(tab) {
       state.tab = tab;
+      document.getElementById('scanner-camera-section').style.display = tab === 'scan' ? 'block' : 'none';
       document.querySelectorAll('nav.bottom-tabs button').forEach(b => b.classList.remove('active'));
       const btn = document.querySelector(`[data-testid="tab-${tab}"]`);
       if (btn) btn.classList.add('active');
@@ -498,9 +746,11 @@
     function setQrTheme(themeKey, prodId) { state.qrTheme = themeKey; saveState(); openQrPrintModal(prodId); render(); }
 
     function openQrPrintModal(prodId) {
-      const prod = state.products.find(p => p.id === prodId) || state.products[0];
+      const idx = state.products.findIndex(p => p.id === prodId);
+      if (idx >= 0) state.activeTargetIdx = idx;
+      const prod = state.products[idx >= 0 ? idx : 0];
       const modal = document.getElementById('scan-modal');
-      document.getElementById('modal-title').textContent = `Designer QR Studio — ${prod.name}`;
+      document.getElementById('modal-title').textContent = `Large Scannable QR — ${prod.name}`;
       document.getElementById('modal-body').innerHTML = `
         <div class="theme-pills-row">
           <button class="theme-pill ${state.qrTheme === 'EMERALD' ? 'active' : ''}" onclick="setQrTheme('EMERALD', '${prod.id}')">Emerald Boutique</button>
@@ -514,8 +764,8 @@
               <span style="font-size:13px;font-weight:900;background:#0F172A;color:#FFF;padding:2px 10px;border-radius:99px;">£${prod.sellingPrice.toFixed(2)}</span>
             </div>
             <div style="font-weight:900;font-size:14px;margin-bottom:8px;">${escapeHtml(prod.name)}</div>
-            ${makeDesignerQrSvg(prod.qrCode, 130, state.qrTheme)}
-            <div style="margin-top:8px;font-family:monospace;font-size:12px;font-weight:700;">${escapeHtml(prod.qrCode)}</div>
+            ${makeDesignerQrSvg(prod.qrCode, 210, state.qrTheme)}
+            <div style="margin-top:8px;font-family:monospace;font-size:13px;font-weight:800;">${escapeHtml(prod.qrCode)}</div>
           </div>
         </div>
         <button class="btn-primary" onclick="window.print()">🖨 AirPrint Single Label or A4 Sheet</button>
@@ -524,6 +774,8 @@
     }
 
     function openScanModal(prodId) {
+      const idx = state.products.findIndex(p => p.id === prodId);
+      if (idx >= 0) state.activeTargetIdx = idx;
       const prod = state.products.find(p => p.id === prodId);
       if (!prod) return;
       state.selectedProduct = prod;
@@ -533,6 +785,9 @@
 
       if (state.scannerMode === 'SELL') {
         body.innerHTML = `
+          <div style="background:#F0FDFA;border:1px solid #99F6E4;padding:10px;border-radius:10px;margin-bottom:10px;font-size:12px;color:#0F766E;font-weight:800;">
+            ✓ QR Scanned: ${escapeHtml(prod.qrCode)} • Price: £${prod.sellingPrice.toFixed(2)}
+          </div>
           <label style="font-size:12px;font-weight:800;">Quantity Sold (Defaults to 1)</label>
           <input id="scan-qty-input" type="number" value="1" min="1" />
           <button class="btn-primary" onclick="confirmScanAction()">Confirm Sale (-Stock & Save Sale)</button>
@@ -548,7 +803,7 @@
       } else {
         body.innerHTML = `
           <div style="text-align:center;font-size:13px;line-height:1.6;">
-            ${makeDesignerQrSvg(prod.qrCode, 110, state.qrTheme)}
+            ${makeDesignerQrSvg(prod.qrCode, 170, state.qrTheme)}
             <p><strong>QR Code:</strong> <span class="mono-code">${escapeHtml(prod.qrCode)}</span></p>
             <p><strong>Live Stock:</strong> ${prod.quantity} units (Min Alert: ${prod.minStockLevel})</p>
             <p><strong>Selling Price:</strong> £${prod.sellingPrice.toFixed(2)}</p>
@@ -665,22 +920,14 @@
             <button class="seg-btn ${state.scannerMode === 'RESTOCK' ? 'active-RESTOCK' : ''}" onclick="setMode('RESTOCK')">Restock</button>
             <button class="seg-btn ${state.scannerMode === 'INFO' ? 'active-INFO' : ''}" onclick="setMode('INFO')">Info</button>
           </div>
-          <div id="active-mode-banner" style="${bannerColors[state.scannerMode]}">${state.scannerMode} MODE ACTIVE — Tap any phone/accessory below or open iPhone camera</div>
-          <div class="camera-box">
-            <video id="live-video" playsinline></video>
-            <div class="reticle">
-              <div class="laser-line"></div>
-              QR & Barcode Scanner Ready
-            </div>
-            <button class="camera-btn" onclick="startLiveCamera()">📷 Open Live iPhone Camera</button>
-          </div>
+          <div id="active-mode-banner" style="${bannerColors[state.scannerMode]}">${state.scannerMode} MODE — Tap Camera Box above & center the QR code inside the green square</div>
           ${state.products.map(p => `
             <div class="card prod-row" onclick="openScanModal('${p.id}')">
               <div style="display:flex;align-items:center;gap:10px;flex:1;">
-                <div>${makeDesignerQrSvg(p.qrCode, 46, state.qrTheme)}</div>
+                <div onclick="event.stopPropagation(); openQrPrintModal('${p.id}')" title="Tap to enlarge QR">${makeDesignerQrSvg(p.qrCode, 54, state.qrTheme)}</div>
                 <div>
                   <div class="prod-name">${escapeHtml(p.name)}</div>
-                  <div class="prod-sub"><span class="mono-code">${escapeHtml(p.qrCode)}</span> • <strong>£${p.sellingPrice.toFixed(2)}</strong></div>
+                  <div class="prod-sub"><span style="color:#0D9488;font-weight:800;">● QR Connected:</span> <span class="mono-code">${escapeHtml(p.qrCode)}</span> • <strong>£${p.sellingPrice.toFixed(2)}</strong></div>
                 </div>
               </div>
               <span class="stock-pill ${p.quantity <= p.minStockLevel ? 'low' : ''}">${p.quantity} in stock</span>
@@ -704,9 +951,9 @@
               <div style="flex:1;">
                 <div class="prod-name">${escapeHtml(p.name)}</div>
                 <div class="prod-sub"><span class="mono-code">${escapeHtml(p.qrCode)}</span> • Sell: <strong>£${p.sellingPrice.toFixed(2)}</strong> ${state.role === 'OWNER' ? `• Buy: £${p.buyingPrice.toFixed(2)}` : ''}</div>
-                <button style="margin-top:8px;padding:6px 12px;border-radius:99px;border:1px solid #0D9488;background:#F0FDFA;color:#0F766E;font-weight:800;font-size:11.5px;cursor:pointer;" onclick="openQrPrintModal('${p.id}')">✨ QR Studio & AirPrint Label</button>
+                <button style="margin-top:8px;padding:6px 12px;border-radius:99px;border:1px solid #0D9488;background:#F0FDFA;color:#0F766E;font-weight:800;font-size:11.5px;cursor:pointer;" onclick="openQrPrintModal('${p.id}')">🔍 Enlarge QR to Scan / Print</button>
               </div>
-              <div onclick="openQrPrintModal('${p.id}')" style="cursor:pointer;">${makeDesignerQrSvg(p.qrCode, 58, state.qrTheme)}</div>
+              <div onclick="openQrPrintModal('${p.id}')" style="cursor:pointer;">${makeDesignerQrSvg(p.qrCode, 64, state.qrTheme)}</div>
             </div>
           `).join('')}
         `;
@@ -724,7 +971,7 @@
                 <div class="prod-sub" style="color:#DC2626;font-weight:800;">⚠ Low Stock: Only ${p.quantity} left (Min level: ${p.minStockLevel})</div>
                 <div class="prod-sub">Warranty / Batch Date: ${escapeHtml(p.expiryDate || 'None')}</div>
               </div>
-              <div>${makeDesignerQrSvg(p.qrCode, 48, state.qrTheme)}</div>
+              <div onclick="openQrPrintModal('${p.id}')">${makeDesignerQrSvg(p.qrCode, 54, state.qrTheme)}</div>
             </div>
           `).join('')}
         `;
