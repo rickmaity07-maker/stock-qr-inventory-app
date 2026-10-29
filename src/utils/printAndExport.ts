@@ -2,12 +2,10 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { MonthlySummary, Product } from '../types/inventory';
+import { generateRealQrMatrix } from '../components/DesignerQrCode';
 
 /**
- * Generates a high-end Designer QR Code SVG with:
- * - Concentric squircle finder eyes
- * - Rounded dot-matrix data modules
- * - Center brand emblem ("QR" / shield badge)
+ * Generates a 100% optically scannable ISO/IEC 18004 Reed-Solomon Designer QR Code SVG.
  * Works 100% offline and prints at crisp vector resolution on thermal or A4 sticker sheets.
  */
 export function buildDesignerQrSvg(
@@ -16,66 +14,33 @@ export function buildDesignerQrSvg(
   primaryColor: string = '#0F172A',
   accentColor: string = '#0D9488'
 ): string {
-  const gridSize = 21;
-  const cell = sizePx / gridSize;
+  const matrix = generateRealQrMatrix(qrValue || 'STK-0000');
+  const gridSize = 25;
+  const quietZone = 3;
+  const totalModules = gridSize + quietZone * 2;
+  const cell = sizePx / totalModules;
 
-  const isFinderZone = (r: number, c: number) => {
-    if (r < 7 && c < 7) return true;
-    if (r < 7 && c >= gridSize - 7) return true;
-    if (r >= gridSize - 7 && c < 7) return true;
-    return false;
-  };
-
-  const isCenterLogoZone = (r: number, c: number) => {
-    return r >= 8 && r <= 12 && c >= 8 && c <= 12;
-  };
-
-  let hash = 2166136261;
-  for (let i = 0; i < qrValue.length; i++) {
-    hash ^= qrValue.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  let dots = '';
+  let rects = '';
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
-      if (isFinderZone(r, c) || isCenterLogoZone(r, c)) continue;
-      const charCode = qrValue.charCodeAt((r * gridSize + c) % Math.max(1, qrValue.length));
-      const active = ((charCode * 17 + r * 31 + c * 13 + (hash & 0xff)) % 10) < 5;
-      if (active) {
-        const cx = (c + 0.5) * cell;
-        const cy = (r + 0.5) * cell;
-        const radius = cell * 0.4;
-        const fill = (r + c) % 5 === 0 ? accentColor : primaryColor;
-        dots += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${radius.toFixed(1)}" fill="${fill}" />`;
+      if (matrix[r][c]) {
+        const isFinderCenter =
+          (r >= 2 && r <= 4 && c >= 2 && c <= 4) ||
+          (r >= 2 && r <= 4 && c >= 20 && c <= 22) ||
+          (r >= 20 && r <= 22 && c >= 2 && c <= 4);
+        const fill = isFinderCenter ? accentColor : primaryColor;
+        const x = ((c + quietZone) * cell).toFixed(2);
+        const y = ((r + quietZone) * cell).toFixed(2);
+        const w = (cell + 0.35).toFixed(2);
+        rects += `<rect x="${x}" y="${y}" width="${w}" height="${w}" fill="${fill}" />`;
       }
     }
   }
 
-  const renderFinderEye = (startR: number, startC: number) => {
-    const x = startC * cell;
-    const y = startR * cell;
-    const outer = 7 * cell;
-    const inner = 3 * cell;
-    const innerOffset = 2 * cell;
-    return `
-      <rect x="${(x + cell * 0.4).toFixed(1)}" y="${(y + cell * 0.4).toFixed(1)}" width="${(outer - cell * 0.8).toFixed(1)}" height="${(outer - cell * 0.8).toFixed(1)}" rx="${(cell * 1.8).toFixed(1)}" fill="none" stroke="${primaryColor}" stroke-width="${(cell * 0.95).toFixed(1)}" />
-      <rect x="${(x + innerOffset).toFixed(1)}" y="${(y + innerOffset).toFixed(1)}" width="${inner.toFixed(1)}" height="${inner.toFixed(1)}" rx="${(cell * 0.9).toFixed(1)}" fill="${accentColor}" />
-    `;
-  };
-
-  const centerPos = 8.2 * cell;
-  const centerSize = 4.6 * cell;
-
   return `
     <svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${sizePx} ${sizePx}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;">
-      <rect width="${sizePx}" height="${sizePx}" rx="${(sizePx * 0.1).toFixed(1)}" fill="#FFFFFF"/>
-      ${renderFinderEye(0, 0)}
-      ${renderFinderEye(0, gridSize - 7)}
-      ${renderFinderEye(gridSize - 7, 0)}
-      ${dots}
-      <rect x="${centerPos.toFixed(1)}" y="${centerPos.toFixed(1)}" width="${centerSize.toFixed(1)}" height="${centerSize.toFixed(1)}" rx="${(cell * 1.2).toFixed(1)}" fill="${primaryColor}" stroke="#FFFFFF" stroke-width="${(cell * 0.4).toFixed(1)}"/>
-      <text x="50%" y="53.5%" dominant-baseline="middle" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-weight="900" font-size="${(cell * 1.65).toFixed(1)}">QR</text>
+      <rect width="${sizePx}" height="${sizePx}" rx="${(sizePx * 0.08).toFixed(1)}" fill="#FFFFFF"/>
+      ${rects}
     </svg>
   `;
 }

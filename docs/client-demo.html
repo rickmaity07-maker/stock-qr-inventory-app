@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#7F1D1D" />
   <title>Mobile Store QR Inventory — Client Demo Preview (Locked)</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
     body { margin: 0; background: #F4F7FB; color: #0F172A; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; position: relative; }
@@ -259,57 +260,236 @@
       }
     }
 
+    let scanLoopId = null;
+
+    async function startLiveCamera() {
+      if (state.isLocked && state.demoScansLeft <= 0) {
+        openLockedPopup('Unlimited Camera Scanning (3/3 Demo Scans Used)');
+        return;
+      }
+      const video = document.getElementById('live-video');
+      if (!video || !navigator.mediaDevices?.getUserMedia) {
+        alert('Camera access requires HTTPS in Safari/Chrome.');
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 } }
+        });
+        video.srcObject = stream;
+        video.setAttribute('playsinline', 'true');
+        video.style.display = 'block';
+        await video.play();
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        if (scanLoopId) clearInterval(scanLoopId);
+        scanLoopId = setInterval(() => {
+          if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+          if (document.getElementById('scan-modal').classList.contains('open')) return;
+          canvas.width = video.videoWidth || 320;
+          canvas.height = video.videoHeight || 240;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          if (window.jsQR) {
+            const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: 'dontInvert'
+            });
+            if (code && code.data) {
+              const clean = code.data.trim().toUpperCase();
+              const matched = state.products.find(
+                p => p.qrCode.toUpperCase() === clean || p.name.toUpperCase() === clean
+              );
+              if (matched) {
+                openScanModal(matched.id);
+              }
+            }
+          }
+        }, 140);
+      } catch (e) {
+        alert('Please allow Camera access in browser settings, or tap any product below to test a scan.');
+      }
+    }
+
+    function generateRealQrMatrix(text) {
+      const cleanText = String(text || 'STK-0000').slice(0, 26);
+      const bytes = Array.from(new TextEncoder().encode(cleanText));
+      const dataCodewords = 28;
+      const ecCodewords = 16;
+      const size = 25;
+      const bits = [];
+      const pushBits = (val, len) => {
+        for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1);
+      };
+      pushBits(0b0100, 4);
+      pushBits(bytes.length, 8);
+      for (const b of bytes) pushBits(b, 8);
+      pushBits(0, Math.min(4, dataCodewords * 8 - bits.length));
+      while (bits.length % 8 !== 0) bits.push(0);
+      const data = [];
+      for (let i = 0; i < bits.length; i += 8) {
+        let byte = 0;
+        for (let j = 0; j < 8; j++) byte = (byte << 1) | bits[i + j];
+        data.push(byte);
+      }
+      const padBytes = [0xEC, 0x11];
+      let padIdx = 0;
+      while (data.length < dataCodewords) data.push(padBytes[padIdx++ % 2]);
+
+      const exp = new Uint8Array(512);
+      const log = new Uint8Array(256);
+      let x = 1;
+      for (let i = 0; i < 255; i++) {
+        exp[i] = x;
+        log[x] = i;
+        x <<= 1;
+        if (x & 0x100) x ^= 0x11d;
+      }
+      for (let i = 255; i < 512; i++) exp[i] = exp[i - 255];
+      const gfMul = (a, b) => (a === 0 || b === 0 ? 0 : exp[log[a] + log[b]]);
+
+      let poly = [1];
+      for (let i = 0; i < ecCodewords; i++) {
+        const next = new Array(poly.length + 1).fill(0);
+        for (let j = 0; j < poly.length; j++) {
+          next[j] ^= poly[j];
+          next[j + 1] ^= gfMul(poly[j], exp[i]);
+        }
+        poly = next;
+      }
+
+      const ec = new Array(ecCodewords).fill(0);
+      for (const b of data) {
+        const factor = b ^ ec[0];
+        ec.shift();
+        ec.push(0);
+        for (let i = 0; i < ecCodewords; i++) {
+          ec[i] ^= gfMul(poly[i + 1], factor);
+        }
+      }
+
+      const codewords = [...data, ...ec];
+      const msgBits = [];
+      for (const cw of codewords) {
+        for (let i = 7; i >= 0; i--) msgBits.push((cw >> i) & 1);
+      }
+      while (msgBits.length < 44 * 8 + 7) msgBits.push(0);
+
+      const matrix = Array.from({ length: size }, () => new Array(size).fill(false));
+      const reserved = Array.from({ length: size }, () => new Array(size).fill(false));
+      const setModule = (r, c, val) => {
+        matrix[r][c] = Boolean(val);
+        reserved[r][c] = true;
+      };
+
+      const placeFinder = (row, col) => {
+        for (let r = -1; r <= 7; r++) {
+          for (let c = -1; c <= 7; c++) {
+            const rr = row + r, cc = col + c;
+            if (rr < 0 || rr >= size || cc < 0 || cc >= size) continue;
+            const inOuter = r >= 0 && r <= 6 && c >= 0 && c <= 6;
+            const onBorder = r === 0 || r === 6 || c === 0 || c === 6;
+            const inInner = r >= 2 && r <= 4 && c >= 2 && c <= 4;
+            setModule(rr, cc, inOuter && (onBorder || inInner));
+          }
+        }
+      };
+      placeFinder(0, 0);
+      placeFinder(0, size - 7);
+      placeFinder(size - 7, 0);
+
+      for (let r = -2; r <= 2; r++) {
+        for (let c = -2; c <= 2; c++) {
+          setModule(18 + r, 18 + c, Math.max(Math.abs(r), Math.abs(c)) !== 1);
+        }
+      }
+
+      for (let i = 8; i < size - 8; i++) {
+        if (!reserved[6][i]) setModule(6, i, i % 2 === 0);
+        if (!reserved[i][6]) setModule(i, 6, i % 2 === 0);
+      }
+
+      setModule(size - 8, 8, true);
+      for (let i = 0; i < 9; i++) {
+        if (i < 8) {
+          reserved[8][size - 1 - i] = true;
+          reserved[size - 1 - i][8] = true;
+        }
+        reserved[8][i] = true;
+        reserved[i][8] = true;
+      }
+
+      let bitIdx = 0;
+      let upward = true;
+      for (let right = size - 1; right >= 1; right -= 2) {
+        if (right === 6) right = 5;
+        for (let vert = 0; vert < size; vert++) {
+          const r = upward ? size - 1 - vert : vert;
+          for (let j = 0; j < 2; j++) {
+            const c = right - j;
+            if (!reserved[r][c]) {
+              const bit = msgBits[bitIdx++] || 0;
+              const masked = bit ^ ((r + c) % 2 === 0 ? 1 : 0);
+              matrix[r][c] = Boolean(masked);
+            }
+          }
+        }
+        upward = !upward;
+      }
+
+      const formatBits = 0x5412;
+      const fBit = (idx) => (formatBits >> idx) & 1;
+      setModule(8, 0, fBit(14));
+      setModule(8, 1, fBit(13));
+      setModule(8, 2, fBit(12));
+      setModule(8, 3, fBit(11));
+      setModule(8, 4, fBit(10));
+      setModule(8, 5, fBit(9));
+      setModule(8, 7, fBit(8));
+      setModule(8, 8, fBit(7));
+      setModule(7, 8, fBit(6));
+      setModule(5, 8, fBit(5));
+      setModule(4, 8, fBit(4));
+      setModule(3, 8, fBit(3));
+      setModule(2, 8, fBit(2));
+      setModule(1, 8, fBit(1));
+      setModule(0, 8, fBit(0));
+
+      for (let i = 0; i < 7; i++) setModule(size - 1 - i, 8, fBit(14 - i));
+      for (let i = 0; i < 8; i++) setModule(8, size - 8 + i, fBit(7 - i));
+
+      return matrix;
+    }
+
     function makeDesignerQrSvg(qrValue, sizePx = 56, themeKey = state.qrTheme) {
       const theme = QR_THEMES[themeKey] || QR_THEMES.EMERALD;
       const primaryColor = theme.primary;
       const accentColor = theme.accent;
-      const gridSize = 21;
-      const cell = sizePx / gridSize;
-      const isFinderZone = (r, c) => (r < 7 && c < 7) || (r < 7 && c >= gridSize - 7) || (r >= gridSize - 7 && c < 7);
-      const isCenterLogoZone = (r, c) => r >= 8 && r <= 12 && c >= 8 && c <= 12;
+      const matrix = generateRealQrMatrix(qrValue);
+      const gridSize = 25;
+      const quietZone = 3;
+      const totalModules = gridSize + quietZone * 2;
+      const cell = sizePx / totalModules;
 
-      let hash = 2166136261;
-      for (let i = 0; i < qrValue.length; i++) {
-        hash ^= qrValue.charCodeAt(i);
-        hash = Math.imul(hash, 16777619);
-      }
-
-      let dots = '';
+      let rects = '';
       for (let r = 0; r < gridSize; r++) {
         for (let c = 0; c < gridSize; c++) {
-          if (isFinderZone(r, c) || isCenterLogoZone(r, c)) continue;
-          const charCode = qrValue.charCodeAt((r * gridSize + c) % Math.max(1, qrValue.length));
-          if (((charCode * 17 + r * 31 + c * 13 + (hash & 0xff)) % 10) < 5) {
-            const cx = (c + 0.5) * cell;
-            const cy = (r + 0.5) * cell;
-            const fill = (r + c) % 4 === 0 ? accentColor : primaryColor;
-            dots += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(cell * 0.42).toFixed(1)}" fill="${fill}" />`;
+          if (matrix[r][c]) {
+            const isFinderCenter =
+              (r >= 2 && r <= 4 && c >= 2 && c <= 4) ||
+              (r >= 2 && r <= 4 && c >= 20 && c <= 22) ||
+              (r >= 20 && r <= 22 && c >= 2 && c <= 4);
+            const fill = isFinderCenter ? accentColor : primaryColor;
+            rects += `<rect x="${((c + quietZone) * cell).toFixed(2)}" y="${((r + quietZone) * cell).toFixed(2)}" width="${(cell + 0.35).toFixed(2)}" height="${(cell + 0.35).toFixed(2)}" fill="${fill}" />`;
           }
         }
       }
 
-      const renderFinderEye = (startR, startC) => {
-        const x = startC * cell;
-        const y = startR * cell;
-        const outer = 7 * cell;
-        const inner = 3 * cell;
-        return `
-          <rect x="${(x + cell * 0.4).toFixed(1)}" y="${(y + cell * 0.4).toFixed(1)}" width="${(outer - cell * 0.8).toFixed(1)}" height="${(outer - cell * 0.8).toFixed(1)}" rx="${(cell * 1.9).toFixed(1)}" fill="none" stroke="${primaryColor}" stroke-width="${(cell * 0.95).toFixed(1)}" />
-          <rect x="${(x + 2 * cell).toFixed(1)}" y="${(y + 2 * cell).toFixed(1)}" width="${inner.toFixed(1)}" height="${inner.toFixed(1)}" rx="${(cell * 0.95).toFixed(1)}" fill="${accentColor}" />
-        `;
-      };
-
-      const centerPos = 8.1 * cell;
-      const centerSize = 4.8 * cell;
       return `
-        <svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${sizePx} ${sizePx}" style="display:block;margin:0 auto;background:#FFF;border-radius:${(sizePx * 0.12).toFixed(1)}px;padding:2px;">
-          <rect width="${sizePx}" height="${sizePx}" rx="${(sizePx * 0.1).toFixed(1)}" fill="#FFFFFF"/>
-          ${renderFinderEye(0, 0)}
-          ${renderFinderEye(0, gridSize - 7)}
-          ${renderFinderEye(gridSize - 7, 0)}
-          ${dots}
-          <rect x="${centerPos.toFixed(1)}" y="${centerPos.toFixed(1)}" width="${centerSize.toFixed(1)}" height="${centerSize.toFixed(1)}" rx="${(cell * 1.3).toFixed(1)}" fill="${accentColor}" stroke="#FFFFFF" stroke-width="${(cell * 0.45).toFixed(1)}"/>
-          <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#FFFFFF" font-weight="900" font-size="${(cell * 1.65).toFixed(1)}">QR</text>
+        <svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${sizePx} ${sizePx}" style="display:block;margin:0 auto;background:#FFF;border-radius:${(sizePx * 0.08).toFixed(1)}px;">
+          <rect width="${sizePx}" height="${sizePx}" rx="${(sizePx * 0.08).toFixed(1)}" fill="#FFFFFF"/>
+          ${rects}
         </svg>
       `;
     }
@@ -440,11 +620,13 @@
             <button class="seg-btn ${state.scannerMode === 'INFO' ? 'active-INFO' : ''}" onclick="setMode('INFO')">Info</button>
           </div>
           <div id="active-mode-banner" style="${bannerColors[state.scannerMode]}">${state.scannerMode} MODE — Tap a phone/accessory below to test a scan (${state.demoScansLeft} demo scans left)</div>
-          <div class="camera-box">
+          <div class="camera-box" style="height:165px;">
+            <video id="live-video" playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;"></video>
             <div class="reticle">
               <div class="laser-line"></div>
               Mobile Store QR Scanner Preview
             </div>
+            <button onclick="startLiveCamera()" style="position:absolute;bottom:8px;right:10px;z-index:5;background:rgba(13,148,136,0.92);color:#FFF;border:none;border-radius:99px;padding:6px 12px;font-size:11px;font-weight:800;cursor:pointer;">📷 Open Live Camera</button>
           </div>
           ${state.products.map(p => `
             <div class="card prod-row" onclick="openScanModal('${p.id}')">
