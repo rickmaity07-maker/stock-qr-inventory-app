@@ -65,15 +65,18 @@ function MainShell() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-      {/* TOP HEADER BAR */}
+      {/* TOP HEADER BAR — Apple iOS HIG Navigation Bar */}
       <View style={styles.header}>
         <View style={styles.brandRow}>
           <View style={styles.brandBadge}>
-            <Ionicons name="cube" size={17} color="#FFFFFF" />
+            <Ionicons name="qr-code" size={16} color="#FFFFFF" />
           </View>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {tabTitles[activeTab]}
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerEyebrow}>APPLE RETAIL STUDIO</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {tabTitles[activeTab]}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.headerRightContainer}>
@@ -86,10 +89,15 @@ function MainShell() {
             <View
               style={[
                 styles.dot,
-                { backgroundColor: isCloudConfigured ? '#10B981' : '#F59E0B' },
+                { backgroundColor: isCloudConfigured ? '#34C759' : '#FF9500' },
               ]}
             />
-            <Text style={styles.syncText}>
+            <Text
+              style={[
+                styles.syncText,
+                { color: isCloudConfigured ? '#248A3D' : '#C93400' },
+              ]}
+            >
               {isCloudConfigured
                 ? unsyncedCount > 0
                   ? `Sync (${unsyncedCount})`
@@ -119,7 +127,7 @@ function MainShell() {
               color="#FFFFFF"
             />
             <Text style={styles.roleText}>
-              {isClientDemoLocked ? 'DEMO LOCKED' : role}
+              {isClientDemoLocked ? 'DEMO' : role}
             </Text>
           </View>
         </View>
@@ -330,36 +338,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#C6C6C8',
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     flex: 1,
   },
   brandBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 9,
     backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.22,
+    shadowRadius: 4,
+    elevation: 2,
   },
   brandBadgeText: {
     color: '#FFFFFF',
-    fontWeight: '900',
+    fontWeight: '800',
     fontSize: 11,
   },
+  headerEyebrow: {
+    color: '#8E8E93',
+    fontSize: 9.5,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
   headerTitle: {
-    color: '#1C1C1E',
+    color: '#000000',
     fontSize: 17,
     fontWeight: '700',
-    flex: 1,
+    letterSpacing: -0.4,
   },
   headerRightContainer: {
     flexDirection: 'row',
@@ -369,16 +388,16 @@ const styles = StyleSheet.create({
   syncPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 999,
     gap: 5,
   },
   syncPillOnline: {
-    backgroundColor: '#E8F7EE',
+    backgroundColor: 'rgba(52, 199, 89, 0.14)',
   },
   syncPillOffline: {
-    backgroundColor: '#FFF4D6',
+    backgroundColor: 'rgba(255, 149, 0, 0.14)',
   },
   dot: {
     width: 6,
@@ -386,41 +405,41 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   syncText: {
-    color: '#3A3A3C',
-    fontSize: 10,
-    fontWeight: '700',
+    color: '#1C1C1E',
+    fontSize: 10.5,
+    fontWeight: '600',
+    letterSpacing: -0.1,
   },
   roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 999,
     gap: 4,
   },
   roleOwner: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#1C1C1E',
   },
   roleStaff: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#5856D6',
   },
   roleDemoLocked: {
-    backgroundColor: '#DC2626',
+    backgroundColor: '#FF3B30',
   },
   roleText: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   demoLockBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#991B1B',
-    paddingHorizontal: 12,
+    backgroundColor: '#FF3B30',
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#DC2626',
     gap: 8,
   },
   demoLockLeft: {
@@ -430,21 +449,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   demoLockText: {
-    color: '#FEF08A',
+    color: '#FFFFFF',
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '600',
     flex: 1,
   },
   demoUnlockPill: {
-    backgroundColor: '#FEF08A',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 999,
   },
   demoUnlockPillText: {
-    color: '#7F1D1D',
+    color: '#FF3B30',
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '700',
   },
   screenBody: {
     flex: 1,
@@ -458,21 +477,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     transform: [{ rotate: '-24deg' }],
-    opacity: 0.12,
+    opacity: 0.08,
   },
   watermarkText: {
     fontSize: 26,
-    fontWeight: '900',
-    color: '#DC2626',
+    fontWeight: '800',
+    color: '#FF3B30',
     letterSpacing: 2,
     textAlign: 'center',
   },
   tabBar: {
     flexDirection: 'row',
-    height: 68,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
+    height: 64,
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#C6C6C8',
     paddingBottom: 6,
     paddingTop: 6,
   },
@@ -483,18 +502,20 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#8E8E93',
     marginTop: 2,
+    letterSpacing: -0.1,
   },
   tabLabelActive: {
     color: '#007AFF',
+    fontWeight: '700',
   },
   badgeCircle: {
     position: 'absolute',
     right: -8,
     top: -4,
-    backgroundColor: '#DC2626',
+    backgroundColor: '#FF3B30',
     borderRadius: 9,
     minWidth: 16,
     height: 16,
@@ -505,11 +526,11 @@ const styles = StyleSheet.create({
   badgeCircleText: {
     color: '#FFFFFF',
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(9, 14, 26, 0.72)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
@@ -517,8 +538,13 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 22,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -528,24 +554,24 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 17,
-    fontWeight: '800',
-    color: '#1C1C1E',
+    fontWeight: '700',
+    color: '#000000',
+    letterSpacing: -0.3,
   },
   modalDesc: {
     fontSize: 13,
     color: '#636366',
     lineHeight: 19,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   modalInput: {
     height: 44,
-    borderWidth: 1,
-    borderColor: '#D1D1D6',
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
+    paddingHorizontal: 14,
     fontSize: 14,
-    color: '#1C1C1E',
-    marginBottom: 14,
+    color: '#000000',
+    marginBottom: 16,
   },
   modalActions: {
     flexDirection: 'row',
@@ -553,26 +579,26 @@ const styles = StyleSheet.create({
   },
   modalCancelBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: 13,
+    borderRadius: 12,
     backgroundColor: '#F2F2F7',
     alignItems: 'center',
   },
   modalCancelText: {
-    color: '#636366',
-    fontWeight: '700',
-    fontSize: 13,
+    color: '#007AFF',
+    fontWeight: '600',
+    fontSize: 14,
   },
   modalConfirmBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: 13,
+    borderRadius: 12,
     backgroundColor: '#007AFF',
     alignItems: 'center',
   },
   modalConfirmText: {
     color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 13,
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

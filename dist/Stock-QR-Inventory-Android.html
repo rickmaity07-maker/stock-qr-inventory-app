@@ -3,99 +3,103 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#090E1A" />
+  <meta name="theme-color" content="#F2F2F7" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Mobile QR" />
   <title>Mobile Store QR Studio (iPhone & Android)</title>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <style>
-    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif; -webkit-tap-highlight-color: transparent; }
     body {
       margin: 0;
-      background: #F4F7FB;
-      color: #0F172A;
+      background: #F2F2F7;
+      color: #000000;
       display: flex;
       flex-direction: column;
       height: 100dvh;
       overflow: hidden;
       padding-top: env(safe-area-inset-top);
+      -webkit-font-smoothing: antialiased;
     }
     header {
-      background: linear-gradient(180deg, #090E1A 0%, #0F172A 100%);
-      color: #FFF;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      color: #000000;
       padding: 12px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+      border-bottom: 0.5px solid #C6C6C8;
     }
     .brand-row { display: flex; align-items: center; gap: 10px; }
     .brand-icon {
-      width: 32px; height: 32px; border-radius: 10px;
-      background: linear-gradient(135deg, #14B8A6, #0F766E);
+      width: 32px; height: 32px; border-radius: 9px;
+      background: #007AFF;
       display: flex; align-items: center; justify-content: center;
-      font-weight: 900; font-size: 13px; color: #FFF;
+      font-weight: 800; font-size: 12.5px; color: #FFFFFF;
+      box-shadow: 0 2px 6px rgba(0, 122, 255, 0.25);
     }
-    .header-title { font-size: 16px; font-weight: 800; }
+    .header-title { font-size: 16.5px; font-weight: 700; letter-spacing: -0.4px; color: #000000; }
     .header-badges { display: flex; gap: 6px; align-items: center; }
-    .badge { font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 99px; }
-    .badge-sync { background: rgba(16, 185, 129, 0.18); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.3); }
-    .badge-owner { background: linear-gradient(135deg, #0D9488, #0F766E); color: #FFF; }
-    .badge-staff { background: linear-gradient(135deg, #2563EB, #1D4ED8); color: #FFF; }
+    .badge { font-size: 10.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; letter-spacing: -0.1px; }
+    .badge-sync { background: rgba(52, 199, 89, 0.14); color: #248A3D; }
+    .badge-owner { background: #1C1C1E; color: #FFFFFF; font-weight: 700; }
+    .badge-staff { background: #5856D6; color: #FFFFFF; font-weight: 700; }
 
     .ios-install-banner {
-      background: linear-gradient(90deg, #0F172A, #1E293B);
-      color: #F8FAFC;
-      padding: 8px 14px;
+      background: #FFFFFF;
+      color: #3A3A3C;
+      padding: 8px 16px;
       font-size: 11.5px;
-      font-weight: 700;
+      font-weight: 500;
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 10px;
-      border-bottom: 1px solid #334155;
+      border-bottom: 0.5px solid #C6C6C8;
     }
-    .ios-install-banner strong { color: #2DD4BF; }
+    .ios-install-banner strong { color: #007AFF; font-weight: 600; }
     .ios-dismiss {
-      background: rgba(255,255,255,0.12);
-      color: #FFF;
+      background: #F2F2F7;
+      color: #007AFF;
       border: none;
-      border-radius: 99px;
-      padding: 4px 10px;
+      border-radius: 999px;
+      padding: 4px 12px;
       font-size: 11px;
-      font-weight: 800;
+      font-weight: 600;
       cursor: pointer;
     }
 
-    main { flex: 1; overflow-y: auto; padding: 12px 14px; max-width: 600px; width: 100%; margin: 0 auto; }
-    .segmented { display: flex; background: #E2E8F0; border-radius: 14px; padding: 4px; gap: 4px; }
-    .seg-btn { flex: 1; border: none; padding: 10px; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; background: transparent; color: #475569; }
-    .seg-btn.active-SELL { background: linear-gradient(135deg, #0D9488, #0F766E); color: #FFF; }
-    .seg-btn.active-RESTOCK { background: linear-gradient(135deg, #2563EB, #1D4ED8); color: #FFF; }
-    .seg-btn.active-INFO { background: linear-gradient(135deg, #D97706, #B45309); color: #FFF; }
-    #active-mode-banner { font-size: 12px; font-weight: 800; margin: 8px 0; padding: 8px 12px; border-radius: 10px; background: #F0FDFA; color: #0F766E; border: 1px solid #99F6E4; }
+    main { flex: 1; overflow-y: auto; padding: 12px 16px; max-width: 600px; width: 100%; margin: 0 auto; }
+    .segmented { display: flex; background: rgba(118, 118, 128, 0.12); border-radius: 11px; padding: 3px; gap: 3px; }
+    .seg-btn { flex: 1; border: none; padding: 9px; border-radius: 9px; font-weight: 600; font-size: 13px; cursor: pointer; background: transparent; color: #3A3A3C; letter-spacing: -0.2px; transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1); }
+    .seg-btn.active-SELL { background: #007AFF; color: #FFF; font-weight: 700; box-shadow: 0 2px 6px rgba(0, 122, 255, 0.22); }
+    .seg-btn.active-RESTOCK { background: #5856D6; color: #FFF; font-weight: 700; box-shadow: 0 2px 6px rgba(88, 86, 214, 0.22); }
+    .seg-btn.active-INFO { background: #FF9500; color: #FFF; font-weight: 700; box-shadow: 0 2px 6px rgba(255, 149, 0, 0.22); }
+    #active-mode-banner { font-size: 12px; font-weight: 600; margin: 8px 0; padding: 8px 12px; border-radius: 12px; background: rgba(0, 122, 255, 0.08); color: #007AFF; letter-spacing: -0.1px; }
 
     #scanner-camera-section {
       display: block;
       max-width: 600px;
       width: 100%;
       margin: 0 auto;
-      padding: 10px 14px 0;
+      padding: 10px 16px 0;
     }
     .camera-box {
       height: 195px;
-      background: radial-gradient(circle at center, #1E293B 0%, #090E1A 100%);
-      border-radius: 18px;
+      background: radial-gradient(circle at center, #2C2C2E 0%, #1C1C1E 100%);
+      border-radius: 24px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       position: relative;
-      border: 2px solid #334155;
       overflow: hidden;
       cursor: pointer;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     }
     #live-video {
       position: absolute;
@@ -107,90 +111,95 @@
     }
     .reticle {
       width: 135px; height: 135px;
-      border: 2.5px solid rgba(20, 184, 166, 0.9);
-      border-radius: 18px;
+      border: 2.5px solid #007AFF;
+      border-radius: 22px;
       display: flex; align-items: center; justify-content: center;
-      color: #CCFBF1; font-size: 11.5px; font-weight: 800; text-align: center; padding: 10px;
-      position: relative; z-index: 2; background: rgba(9, 14, 26, 0.28);
+      color: #FFFFFF; font-size: 11.5px; font-weight: 600; text-align: center; padding: 10px;
+      position: relative; z-index: 2; background: rgba(255, 255, 255, 0.06);
       transition: all 0.2s ease;
     }
     .reticle.locking {
-      border-color: #10B981;
-      box-shadow: 0 0 22px rgba(16, 185, 129, 0.85);
+      border-color: #34C759;
+      box-shadow: 0 0 22px rgba(52, 199, 89, 0.85);
       transform: scale(1.05);
-      background: rgba(16, 185, 129, 0.18);
+      background: rgba(52, 199, 89, 0.18);
       color: #FFFFFF;
     }
     .camera-status-pill {
       position: absolute;
-      top: 8px;
-      left: 10px;
+      top: 10px;
+      left: 12px;
       z-index: 5;
-      background: rgba(9, 14, 26, 0.78);
-      color: #34D399;
-      border: 1px solid rgba(52, 211, 153, 0.4);
-      border-radius: 99px;
-      padding: 4px 10px;
+      background: rgba(28, 28, 30, 0.78);
+      backdrop-filter: blur(12px);
+      color: #FFFFFF;
+      border-radius: 999px;
+      padding: 5px 11px;
       font-size: 10.5px;
-      font-weight: 800;
+      font-weight: 600;
     }
     .camera-btn {
       position: absolute;
-      bottom: 8px;
-      right: 10px;
+      bottom: 10px;
+      right: 12px;
       z-index: 5;
-      background: linear-gradient(135deg, #0D9488, #0F766E);
+      background: #007AFF;
       color: #FFF;
       border: none;
-      border-radius: 99px;
+      border-radius: 999px;
       padding: 7px 14px;
       font-size: 11.5px;
-      font-weight: 800;
+      font-weight: 600;
       cursor: pointer;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.35);
     }
     .laser-line {
       position: absolute; left: 8px; right: 8px; height: 2px;
-      background: linear-gradient(90deg, transparent, #2DD4BF, #10B981, transparent);
-      box-shadow: 0 0 10px #2DD4BF;
+      background: linear-gradient(90deg, transparent, #007AFF, #5AC8FA, transparent);
+      box-shadow: 0 0 10px #007AFF;
       animation: laserSweep 2.0s infinite ease-in-out;
     }
     @keyframes laserSweep { 0%, 100% { top: 14px; } 50% { top: 116px; } }
 
     .card {
       background: #FFFFFF;
-      border: 1px solid #E2E8F0;
-      border-radius: 16px;
-      padding: 14px;
+      border: none;
+      border-radius: 20px;
+      padding: 15px;
       margin-bottom: 10px;
-      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
     }
     .prod-row { display: flex; justify-content: space-between; align-items: center; cursor: pointer; gap: 10px; }
-    .prod-name { font-weight: 800; font-size: 14px; color: #0F172A; }
-    .prod-sub { font-size: 11.5px; color: #64748B; margin-top: 3px; font-weight: 600; }
-    .mono-code { font-family: monospace; font-size: 11px; color: #0F766E; font-weight: 700; }
-    .stock-pill { font-size: 11px; font-weight: 800; padding: 5px 10px; border-radius: 99px; background: #F0FDFA; color: #0F766E; border: 1px solid #99F6E4; white-space: nowrap; }
-    .stock-pill.low { background: #FEF2F2; color: #DC2626; border-color: #FECACA; }
+    .prod-name { font-weight: 600; font-size: 14.5px; color: #000000; letter-spacing: -0.2px; }
+    .prod-sub { font-size: 11.5px; color: #8E8E93; margin-top: 3px; font-weight: 500; }
+    .mono-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #007AFF; font-weight: 600; }
+    .stock-pill { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: rgba(52, 199, 89, 0.14); color: #248A3D; white-space: nowrap; }
+    .stock-pill.low { background: rgba(255, 59, 48, 0.14); color: #FF3B30; }
 
     nav.bottom-tabs {
-      display: flex; background: #FFFFFF; border-top: 1px solid #E2E8F0;
-      height: 68px; padding-bottom: env(safe-area-inset-bottom);
+      display: flex;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-top: 0.5px solid #C6C6C8;
+      height: 64px;
+      padding-bottom: env(safe-area-inset-bottom);
     }
-    nav button { flex: 1; border: none; background: transparent; font-size: 11px; font-weight: 800; color: #64748B; cursor: pointer; }
-    nav button.active { color: #0D9488; border-top: 3px solid #0D9488; background: #F0FDFA; }
+    nav button { flex: 1; border: none; background: transparent; font-size: 11px; font-weight: 600; color: #8E8E93; cursor: pointer; letter-spacing: -0.1px; }
+    nav button.active { color: #007AFF; font-weight: 700; }
 
-    .modal-backdrop { position: fixed; inset: 0; background: rgba(9, 14, 26, 0.72); display: none; align-items: flex-end; justify-content: center; z-index: 50; }
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(4px); display: none; align-items: flex-end; justify-content: center; z-index: 50; }
     .modal-backdrop.open { display: flex; }
     .modal-sheet { background: #FFFFFF; width: 100%; max-width: 600px; border-radius: 24px 24px 0 0; padding: 20px; max-height: 88dvh; overflow-y: auto; }
-    input { width: 100%; height: 44px; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 0 12px; margin: 6px 0 12px; font-size: 14px; font-weight: 600; }
-    .btn-primary { width: 100%; background: linear-gradient(135deg, #0D9488, #0F766E); color: #FFF; border: none; padding: 13px 16px; border-radius: 99px; font-weight: 800; cursor: pointer; font-size: 14px; }
+    input { width: 100%; height: 44px; border: none; background: #F2F2F7; border-radius: 12px; padding: 0 14px; margin: 6px 0 12px; font-size: 14px; font-weight: 500; color: #000000; }
+    .btn-primary { width: 100%; background: #007AFF; color: #FFF; border: none; padding: 14px 16px; border-radius: 14px; font-weight: 600; cursor: pointer; font-size: 14.5px; letter-spacing: -0.2px; }
     .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-    .kpi-box { background: linear-gradient(135deg, #0D9488, #065F46); color: #FFF; padding: 16px; border-radius: 16px; }
-    .kpi-val { font-size: 24px; font-weight: 900; margin-top: 4px; }
+    .kpi-box { background: #007AFF; color: #FFF; padding: 16px; border-radius: 20px; box-shadow: 0 4px 14px rgba(0, 122, 255, 0.22); }
+    .kpi-val { font-size: 24px; font-weight: 700; margin-top: 4px; letter-spacing: -0.5px; }
     .theme-pills-row { display: flex; gap: 6px; justify-content: center; margin: 8px 0 12px; }
-    .theme-pill { font-size: 11px; font-weight: 800; padding: 6px 12px; border-radius: 99px; border: 1px solid #CBD5E1; background: #F8FAFC; cursor: pointer; }
-    .theme-pill.active { background: #0F172A; color: #FFFFFF; border-color: #0F172A; }
-    .designer-sticker-shell { padding: 6px; border-radius: 22px; background: linear-gradient(135deg, #0D9488, #0F172A); margin-bottom: 12px; }
+    .theme-pill { font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 999px; border: none; background: #F2F2F7; color: #3A3A3C; cursor: pointer; }
+    .theme-pill.active { background: #000000; color: #FFFFFF; }
+    .designer-sticker-shell { padding: 6px; border-radius: 22px; background: linear-gradient(135deg, #007AFF, #1C1C1E); margin-bottom: 12px; }
     .designer-sticker-core { background: #FFFFFF; border-radius: 17px; padding: 14px; text-align: center; }
   </style>
 </head>
@@ -255,9 +264,9 @@
     let lastRemoteSyncTs = 0;
 
     const QR_THEMES = {
-      EMERALD: { name: 'Emerald Boutique', primary: '#000000', accent: '#0F766E' },
-      GOLD: { name: 'Royal Gold', primary: '#000000', accent: '#B45309' },
-      OBSIDIAN: { name: 'Obsidian Pro', primary: '#000000', accent: '#1D4ED8' }
+      EMERALD: { name: 'Cupertino Blue', primary: '#1C1C1E', accent: '#007AFF' },
+      GOLD: { name: 'Titanium Amber', primary: '#1C1C1E', accent: '#FF9500' },
+      OBSIDIAN: { name: 'Space Indigo', primary: '#1C1C1E', accent: '#5856D6' }
     };
 
     const defaultState = {
@@ -270,7 +279,7 @@
       role: 'OWNER',
       ownerPin: '1234',
       qrTheme: 'EMERALD',
-      otaVersion: 'v2.2.0',
+      otaVersion: 'v2.4.0',
       otaProgress: 0,
       otaStatus: '✓ Automatic Over-The-Air (OTA) Updates Active — Updates in-place without reinstalling',
       lastSyncedAt: 'Live Cloud Connected',
@@ -1161,9 +1170,9 @@
 
       if (state.tab === 'scan') {
         const bannerColors = {
-          SELL: 'background:#F0FDFA;color:#0F766E;border-color:#99F6E4;',
-          RESTOCK: 'background:#EFF6FF;color:#1D4ED8;border-color:#BFDBFE;',
-          INFO: 'background:#FFFBEB;color:#B45309;border-color:#FDE68A;'
+          SELL: 'background:rgba(0,122,255,0.1);color:#007AFF;',
+          RESTOCK: 'background:rgba(88,86,214,0.1);color:#5856D6;',
+          INFO: 'background:rgba(255,149,0,0.12);color:#C93400;'
         };
         container.innerHTML = `
           <div class="segmented">
@@ -1171,14 +1180,14 @@
             <button class="seg-btn ${state.scannerMode === 'RESTOCK' ? 'active-RESTOCK' : ''}" onclick="setMode('RESTOCK')">Restock</button>
             <button class="seg-btn ${state.scannerMode === 'INFO' ? 'active-INFO' : ''}" onclick="setMode('INFO')">Info</button>
           </div>
-          <div id="active-mode-banner" style="${bannerColors[state.scannerMode]}">${state.scannerMode} MODE — Tap Camera Box above & center the QR code inside the green square</div>
+          <div id="active-mode-banner" style="${bannerColors[state.scannerMode]}">${state.scannerMode} MODE — Tap Camera Box above & center the QR code inside the reticle</div>
           ${state.products.map(p => `
             <div class="card prod-row" onclick="openScanModal('${p.id}')">
               <div style="display:flex;align-items:center;gap:10px;flex:1;">
                 <div onclick="event.stopPropagation(); openQrPrintModal('${p.id}')" title="Tap to enlarge QR">${makeDesignerQrSvg(p.qrCode, 54, state.qrTheme)}</div>
                 <div>
                   <div class="prod-name">${escapeHtml(p.name)}</div>
-                  <div class="prod-sub"><span style="color:#0D9488;font-weight:800;">● QR Connected:</span> <span class="mono-code">${escapeHtml(p.qrCode)}</span> • <strong>£${p.sellingPrice.toFixed(2)}</strong></div>
+                  <div class="prod-sub"><span style="color:#007AFF;font-weight:700;">● QR Connected:</span> <span class="mono-code">${escapeHtml(p.qrCode)}</span> • <strong>£${p.sellingPrice.toFixed(2)}</strong></div>
                 </div>
               </div>
               <span class="stock-pill ${p.quantity <= p.minStockLevel ? 'low' : ''}">${p.quantity} in stock</span>
@@ -1195,18 +1204,18 @@
         });
 
         container.innerHTML = `
-          <div class="card" style="padding:10px;">
+          <div class="card" style="padding:12px;">
             <input placeholder="🔍 Search phone, QR code, or factory barcode..." value="${escapeHtml(state.searchQuery)}" oninput="setSearchFilter(this.value)" style="margin:0 0 8px;" />
             <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;">
               ${categories.map(c => `
-                <button onclick="setCategoryFilter('${escapeHtml(c)}')" style="border:none;padding:5px 10px;border-radius:99px;font-size:11px;font-weight:800;white-space:nowrap;cursor:pointer;background:${state.selectedCategory === c ? '#0F766E' : '#F1F5F9'};color:${state.selectedCategory === c ? '#FFF' : '#475569'};">${escapeHtml(c)}</button>
+                <button onclick="setCategoryFilter('${escapeHtml(c)}')" style="border:none;padding:6px 12px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap;cursor:pointer;background:${state.selectedCategory === c ? '#000000' : '#F2F2F7'};color:${state.selectedCategory === c ? '#FFF' : '#3A3A3C'};">${escapeHtml(c)}</button>
               `).join('')}
             </div>
           </div>
 
           ${state.role === 'OWNER' ? `
             <div class="card">
-              <strong style="font-size:13.5px;">Add New Mobile Product (Auto QR + Factory Barcode)</strong>
+              <strong style="font-size:14px;letter-spacing:-0.2px;">Add New Mobile Product (Auto QR + Factory Barcode)</strong>
               <input id="new-product-name" placeholder="Product Name (e.g. iPhone 16 Pro Max Silicone Case)" />
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                 <input id="new-product-cat" placeholder="Category (e.g. Cases & Covers)" value="Smartphones" />
@@ -1226,14 +1235,14 @@
           ${filtered.map(p => `
             <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
               <div style="flex:1;">
-                <div style="font-size:10px;font-weight:800;color:#0F766E;">${escapeHtml(p.category || 'Smartphones')} ${p.expiryDate ? `• Batch/Warranty: ${escapeHtml(p.expiryDate)}` : ''}</div>
+                <div style="font-size:10px;font-weight:600;color:#007AFF;">${escapeHtml(p.category || 'Smartphones')} ${p.expiryDate ? `• Batch/Warranty: ${escapeHtml(p.expiryDate)}` : ''}</div>
                 <div class="prod-name">${escapeHtml(p.name)}</div>
-                <div class="prod-sub"><span style="color:#0D9488;font-weight:800;">● QR:</span> <span class="mono-code">${escapeHtml(p.qrCode)}</span> ${p.factoryBarcode ? `• EAN: <span class="mono-code">${escapeHtml(p.factoryBarcode)}</span>` : ''}</div>
-                <div class="prod-sub" style="margin-top:3px;">Sell: <strong>£${p.sellingPrice.toFixed(2)}</strong> ${state.role === 'OWNER' ? `• Buy: £${p.buyingPrice.toFixed(2)} • Profit: <strong style="color:#0D9488;">+£${(p.sellingPrice - p.buyingPrice).toFixed(2)}</strong>` : ''} • Stock: <strong>${p.quantity}</strong></div>
+                <div class="prod-sub"><span style="color:#007AFF;font-weight:600;">● QR:</span> <span class="mono-code">${escapeHtml(p.qrCode)}</span> ${p.factoryBarcode ? `• EAN: <span class="mono-code">${escapeHtml(p.factoryBarcode)}</span>` : ''}</div>
+                <div class="prod-sub" style="margin-top:3px;">Sell: <strong>£${p.sellingPrice.toFixed(2)}</strong> ${state.role === 'OWNER' ? `• Buy: £${p.buyingPrice.toFixed(2)} • Profit: <strong style="color:#34C759;">+£${(p.sellingPrice - p.buyingPrice).toFixed(2)}</strong>` : ''} • Stock: <strong>${p.quantity}</strong></div>
                 <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-                  <button style="padding:5px 10px;border-radius:99px;border:1px solid #0D9488;background:#F0FDFA;color:#0F766E;font-weight:800;font-size:11px;cursor:pointer;" onclick="openQrPrintModal('${p.id}')">🖨 QR & Label Print</button>
+                  <button style="padding:6px 12px;border-radius:10px;border:none;background:rgba(0,122,255,0.1);color:#007AFF;font-weight:600;font-size:11.5px;cursor:pointer;" onclick="openQrPrintModal('${p.id}')">🖨 QR & Label Print</button>
                   ${state.role === 'OWNER' ? `
-                    <button style="padding:5px 10px;border-radius:99px;border:1px solid #CBD5E1;background:#F8FAFC;color:#334155;font-weight:800;font-size:11px;cursor:pointer;" onclick="openEditProductModal('${p.id}')">✎ Edit / Barcode</button>
+                    <button style="padding:6px 12px;border-radius:10px;border:none;background:#F2F2F7;color:#3A3A3C;font-weight:600;font-size:11.5px;cursor:pointer;" onclick="openEditProductModal('${p.id}')">✎ Edit / Barcode</button>
                   ` : ''}
                 </div>
               </div>
@@ -1251,21 +1260,21 @@
             <button class="seg-btn ${state.stockSubTab === 'ALL' ? 'active-RESTOCK' : ''}" onclick="setStockSubTab('ALL')">Live Stock (${state.products.length})</button>
           </div>
           ${state.stockSubTab === 'REORDER' ? `
-            <div class="card" style="background:linear-gradient(135deg,#0F172A,#1E293B);color:#FFF;display:flex;justify-content:space-between;align-items:center;">
+            <div class="card" style="background:#1C1C1E;color:#FFF;display:flex;justify-content:space-between;align-items:center;">
               <div>
                 <strong>Automatic Supplier Reorder List (${low.length})</strong>
-                <div style="font-size:11px;color:#94A3B8;margin-top:2px;">Items at or below minimum stock level, ready for next supplier order.</div>
+                <div style="font-size:11px;color:#8E8E93;margin-top:2px;">Items at or below minimum stock level, ready for next supplier order.</div>
               </div>
-              <button onclick="window.print()" style="border:none;background:#0D9488;color:#FFF;padding:7px 11px;border-radius:99px;font-size:11px;font-weight:800;cursor:pointer;">🖨 Print Order</button>
+              <button onclick="window.print()" style="border:none;background:#007AFF;color:#FFF;padding:8px 13px;border-radius:999px;font-size:11.5px;font-weight:600;cursor:pointer;">🖨 Print Order</button>
             </div>
             ${low.map(p => `
               <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="flex:1;">
                   <div class="prod-name">${escapeHtml(p.name)}</div>
-                  <div class="prod-sub" style="color:#DC2626;font-weight:800;">⚠ Low Stock: Only ${p.quantity} left (Min level: ${p.minStockLevel})</div>
+                  <div class="prod-sub" style="color:#FF3B30;font-weight:600;">⚠ Low Stock: Only ${p.quantity} left (Min level: ${p.minStockLevel})</div>
                   <div class="prod-sub">Suggested Order: <strong>+${Math.max(p.minStockLevel * 2 - p.quantity, 5)} units</strong></div>
                 </div>
-                <button onclick="state.scannerMode='RESTOCK'; openScanModal('${p.id}')" style="border:none;background:#1D4ED8;color:#FFF;padding:8px 12px;border-radius:99px;font-size:11.5px;font-weight:800;cursor:pointer;">+ Restock</button>
+                <button onclick="state.scannerMode='RESTOCK'; openScanModal('${p.id}')" style="border:none;background:#007AFF;color:#FFF;padding:8px 14px;border-radius:999px;font-size:11.5px;font-weight:600;cursor:pointer;">+ Restock</button>
               </div>
             `).join('')}
           ` : state.stockSubTab === 'EXPIRY' ? `
@@ -1295,7 +1304,7 @@
           container.innerHTML = `
             <div class="card" style="text-align:center;padding:24px;">
               <h3>🔒 Owner Access Required</h3>
-              <p style="font-size:12px;color:#64748B;">Staff accounts can only sell, restock, and view stock. Enter Owner PIN to view profit.</p>
+              <p style="font-size:12px;color:#8E8E93;">Staff accounts can only sell, restock, and view stock. Enter Owner PIN to view profit.</p>
               <input id="owner-pin-input" type="password" placeholder="Enter PIN (1234)" />
               <button class="btn-primary" onclick="unlockOwner()">Unlock Profit Dashboard</button>
             </div>
@@ -1322,65 +1331,65 @@
               { k: '2026-09', l: 'September 2026' },
               { k: '2026-08', l: 'August 2026' }
             ].map(m => `
-              <button onclick="setSelectedMonth('${m.k}')" style="flex:1;border:none;padding:8px;border-radius:99px;font-size:11px;font-weight:800;cursor:pointer;background:${state.selectedMonth === m.k ? '#0F172A' : '#E2E8F0'};color:${state.selectedMonth === m.k ? '#FFF' : '#475569'};">${m.l}</button>
+              <button onclick="setSelectedMonth('${m.k}')" style="flex:1;border:none;padding:8px;border-radius:999px;font-size:11.5px;font-weight:600;cursor:pointer;background:${state.selectedMonth === m.k ? '#000000' : '#FFFFFF'};color:${state.selectedMonth === m.k ? '#FFF' : '#636366'};">${m.l}</button>
             `).join('')}
           </div>
 
           <div class="kpi-grid">
             <div class="kpi-box">
-              <div style="font-size:10px;opacity:0.9;font-weight:800;">MONTHLY GROSS PROFIT</div>
+              <div style="font-size:10px;opacity:0.9;font-weight:600;letter-spacing:0.4px;">MONTHLY GROSS PROFIT</div>
               <div class="kpi-val">£${cur.profit.toFixed(2)}</div>
               <div style="font-size:10px;opacity:0.85;margin-top:2px;">Sales minus Cost of Goods</div>
             </div>
-            <div class="kpi-box" style="background:linear-gradient(135deg,#0F172A,#1E293B);">
-              <div style="font-size:10px;opacity:0.9;font-weight:800;">MONTHLY REVENUE</div>
-              <div class="kpi-val">£${cur.rev.toFixed(2)}</div>
-              <div style="font-size:10px;opacity:0.85;margin-top:2px;">${cur.units} units sold</div>
+            <div class="kpi-box" style="background:#FFFFFF;color:#000000;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
+              <div style="font-size:10px;color:#8E8E93;font-weight:600;letter-spacing:0.4px;">MONTHLY REVENUE</div>
+              <div class="kpi-val" style="color:#000000;">£${cur.rev.toFixed(2)}</div>
+              <div style="font-size:10px;color:#8E8E93;margin-top:2px;">${cur.units} units sold</div>
             </div>
           </div>
 
-          <div class="card" style="background:linear-gradient(135deg,#0F172A,#1E293B);color:#FFF;display:flex;justify-content:space-between;align-items:center;">
+          <div class="card" style="background:#1C1C1E;color:#FFF;display:flex;justify-content:space-between;align-items:center;">
             <div>
-              <div style="font-size:12px;font-weight:800;">Total Stock Value at a Glance</div>
-              <div style="font-size:11px;color:#94A3B8;">${totalUnits} total units in stock</div>
+              <div style="font-size:13px;font-weight:700;">Total Stock Value at a Glance</div>
+              <div style="font-size:11px;color:#8E8E93;">${totalUnits} total units in stock</div>
             </div>
             <div style="text-align:right;">
-              <div style="font-size:11px;color:#CBD5E1;">At Cost: <strong>£${stockCostVal.toFixed(2)}</strong></div>
-              <div style="font-size:12px;color:#2DD4BF;font-weight:900;">Retail: £${stockRetailVal.toFixed(2)}</div>
+              <div style="font-size:11px;color:#D1D1D6;">At Cost: <strong>£${stockCostVal.toFixed(2)}</strong></div>
+              <div style="font-size:13px;color:#34C759;font-weight:700;">Retail: £${stockRetailVal.toFixed(2)}</div>
             </div>
           </div>
 
           <div class="card">
-            <strong style="font-size:13px;">Month-by-Month Comparison Chart</strong>
-            <div style="display:flex;align-items:flex-end;justify-content:space-around;height:110px;padding-top:18px;margin-top:8px;border-bottom:1px solid #E2E8F0;">
+            <strong style="font-size:13.5px;letter-spacing:-0.2px;">Month-by-Month Comparison Chart</strong>
+            <div style="display:flex;align-items:flex-end;justify-content:space-around;height:110px;padding-top:18px;margin-top:8px;border-bottom:0.5px solid #C6C6C8;">
               ${[
                 { label: 'Aug 26', d: mAug },
                 { label: 'Sep 26', d: mSep },
                 { label: 'Oct 26', d: mOct }
               ].map(col => `
                 <div style="text-align:center;">
-                  <div style="font-size:9.5px;font-weight:800;color:#0F766E;margin-bottom:3px;">+£${col.d.profit.toFixed(0)}</div>
+                  <div style="font-size:9.5px;font-weight:700;color:#007AFF;margin-bottom:3px;">+£${col.d.profit.toFixed(0)}</div>
                   <div style="display:flex;gap:4px;align-items:flex-end;justify-content:center;height:70px;">
-                    <div style="width:14px;height:${Math.max(8, (col.d.rev / maxRev) * 68)}px;background:#CBD5E1;border-radius:4px 4px 0 0;" title="Revenue"></div>
-                    <div style="width:14px;height:${Math.max(6, (col.d.profit / maxRev) * 68)}px;background:#0D9488;border-radius:4px 4px 0 0;" title="Profit"></div>
+                    <div style="width:14px;height:${Math.max(8, (col.d.rev / maxRev) * 68)}px;background:#D1D1D6;border-radius:4px 4px 0 0;" title="Revenue"></div>
+                    <div style="width:14px;height:${Math.max(6, (col.d.profit / maxRev) * 68)}px;background:#007AFF;border-radius:4px 4px 0 0;" title="Profit"></div>
                   </div>
-                  <div style="font-size:10px;font-weight:700;color:#64748B;margin-top:4px;">${col.label}</div>
+                  <div style="font-size:10px;font-weight:600;color:#8E8E93;margin-top:4px;">${col.label}</div>
                 </div>
               `).join('')}
             </div>
           </div>
 
           <div class="card">
-            <strong style="font-size:13px;">Best Sellers (${state.selectedMonth})</strong>
+            <strong style="font-size:13.5px;letter-spacing:-0.2px;">Best Sellers (${state.selectedMonth})</strong>
             ${cur.best.slice(0, 4).map((b, idx) => `
-              <div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid #F1F5F9;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:0.5px solid #E5E5EA;">
                 <span><strong>#${idx + 1}</strong> ${escapeHtml(b.name)} (${b.units} sold)</span>
-                <strong style="color:#0D9488;">+£${b.profit.toFixed(2)}</strong>
+                <strong style="color:#34C759;">+£${b.profit.toFixed(2)}</strong>
               </div>
             `).join('')}
-            <strong style="font-size:13px;display:block;margin-top:10px;">Slowest / Worst Sellers</strong>
+            <strong style="font-size:13.5px;display:block;margin-top:10px;letter-spacing:-0.2px;">Slowest / Worst Sellers</strong>
             ${cur.worst.slice(0, 2).map(w => `
-              <div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid #F1F5F9;color:#64748B;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:0.5px solid #E5E5EA;color:#8E8E93;">
                 <span>${escapeHtml(w.name)} (${w.units} sold)</span>
                 <span>£${w.profit.toFixed(2)}</span>
               </div>
@@ -1389,10 +1398,10 @@
 
           <div class="card">
             <strong>Accountant Report Export (PDF / Excel)</strong>
-            <p style="font-size:11px;color:#64748B;margin:4px 0 8px;">Prices are saved with each sale so changing a price today never alters past months' figures.</p>
+            <p style="font-size:11px;color:#8E8E93;margin:4px 0 8px;">Prices are saved with each sale so changing a price today never alters past months' figures.</p>
             <div style="display:flex;gap:8px;">
-              <button class="btn-primary" style="flex:1;padding:10px;margin-top:0;" onclick="window.print()">📄 Download PDF</button>
-              <button class="btn-primary" style="flex:1;padding:10px;margin-top:0;background:linear-gradient(135deg,#2563EB,#1D4ED8);" onclick="exportExcelCsv()">📊 Export Excel CSV</button>
+              <button class="btn-primary" style="flex:1;padding:11px;margin-top:0;" onclick="window.print()">📄 Download PDF</button>
+              <button class="btn-primary" style="flex:1;padding:11px;margin-top:0;background:rgba(0,122,255,0.1);color:#007AFF;" onclick="exportExcelCsv()">📊 Export Excel CSV</button>
             </div>
           </div>
         `;
@@ -1400,12 +1409,12 @@
         container.innerHTML = `
           <div class="card">
             <strong>☁️ Automatic App Updates (Over-The-Air Software Update)</strong>
-            <p style="font-size:11.5px;color:#64748B;margin:4px 0 8px;">Fixes and improvements are delivered over the air, so the app updates itself in-place without downloading or reinstalling the package.</p>
-            <div style="background:#F0FDFA;border:1px solid #99F6E4;border-radius:10px;padding:10px;margin-bottom:8px;">
-              <div style="font-size:11.5px;font-weight:800;color:#0F766E;">${escapeHtml(state.otaStatus)}</div>
+            <p style="font-size:11.5px;color:#8E8E93;margin:4px 0 8px;">Fixes and improvements are delivered over the air, so the app updates itself in-place without downloading or reinstalling the package.</p>
+            <div style="background:rgba(0,122,255,0.08);border-radius:12px;padding:11px;margin-bottom:8px;">
+              <div style="font-size:11.5px;font-weight:600;color:#007AFF;">${escapeHtml(state.otaStatus)}</div>
               ${state.otaProgress > 0 ? `
-                <div style="height:6px;background:#CCFBF1;border-radius:3px;margin-top:6px;overflow:hidden;">
-                  <div style="width:${state.otaProgress}%;height:100%;background:#0D9488;transition:width 0.3s;"></div>
+                <div style="height:6px;background:rgba(0,122,255,0.18);border-radius:3px;margin-top:6px;overflow:hidden;">
+                  <div style="width:${state.otaProgress}%;height:100%;background:#007AFF;transition:width 0.3s;"></div>
                 </div>
               ` : ''}
             </div>
@@ -1414,22 +1423,22 @@
 
           <div class="card">
             <strong>🔄 Live Sync Across Devices & Offline Queue</strong>
-            <p style="font-size:11.5px;color:#64748B;margin:4px 0 8px;">A sale on one phone updates stock, revenue, and profit on every other phone within seconds. Scanning keeps working offline and syncs automatically.</p>
-            <div style="font-size:12px;font-weight:800;color:#0D9488;">● Live Sync Status: ${escapeHtml(state.lastSyncedAt)}</div>
-            <button class="btn-primary" style="margin-top:8px;background:linear-gradient(135deg,#0F172A,#1E293B);" onclick="saveState(true); render();">Sync Across All Devices Now</button>
+            <p style="font-size:11.5px;color:#8E8E93;margin:4px 0 8px;">A sale on one phone updates stock, revenue, and profit on every other phone within seconds. Scanning keeps working offline and syncs automatically.</p>
+            <div style="font-size:12px;font-weight:600;color:#248A3D;">● Live Sync Status: ${escapeHtml(state.lastSyncedAt)}</div>
+            <button class="btn-primary" style="margin-top:8px;background:#1C1C1E;" onclick="saveState(true); render();">Sync Across All Devices Now</button>
           </div>
 
           <div class="card">
             <strong>👤 Multiple Users & Roles (Owner vs. Staff)</strong>
-            <p style="font-size:11.5px;color:#64748B;margin:4px 0 8px;">The Owner sees everything including profit. Staff accounts can only sell, restock, and view stock.</p>
+            <p style="font-size:11.5px;color:#8E8E93;margin:4px 0 8px;">The Owner sees everything including profit. Staff accounts can only sell, restock, and view stock.</p>
             <p style="font-size:13px;">Active Role: <strong>${state.role}</strong></p>
             ${state.role === 'OWNER' ? `
-              <button class="btn-primary" style="background:linear-gradient(135deg,#2563EB,#1D4ED8);margin-bottom:8px;" onclick="switchToStaff()">Switch Phone to Staff Mode</button>
+              <button class="btn-primary" style="background:#5856D6;margin-bottom:8px;" onclick="switchToStaff()">Switch Phone to Staff Mode</button>
             ` : `
               <input id="owner-pin-input" type="password" placeholder="Enter Owner PIN (Default: 1234)" />
               <button class="btn-primary" style="margin-bottom:8px;" onclick="unlockOwner()">Unlock Owner Mode</button>
             `}
-            <button class="btn-primary" style="background:linear-gradient(135deg,#DC2626,#991B1B);" onclick="window.location.href='./client-demo.html'">🔒 Open Blocked Client Demo Mode</button>
+            <button class="btn-primary" style="background:#FF3B30;" onclick="window.location.href='./client-demo.html'">🔒 Open Blocked Client Demo Mode</button>
           </div>
         `;
       }

@@ -1,7 +1,7 @@
 {
-  "version": "v2.3.0",
-  "releasedAt": "2026-10-29T18:48:45.000Z",
-  "notes": "Apple-inspired redesign with a refined scanner, clearer navigation, and updated catalogue, stock, and dashboard screens.",
+  "version": "v2.4.0",
+  "releasedAt": "2026-10-30T16:49:00.000Z",
+  "notes": "Apple iOS Cupertino Design Palette upgrade (v2.4.0): translucent headers, iOS segmented controls, borderless squircle cards, and Cupertino Blue QR Studio.",
   "apkDownloadUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/download/v1.0.0/Stock-QR-Inventory.apk",
   "clientDemoApkUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/download/v1.0.0/Stock-QR-Client-Demo-Locked.apk",
   "products": [

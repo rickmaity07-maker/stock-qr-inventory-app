@@ -186,8 +186,8 @@ export function generateRealQrMatrix(text: string): boolean[][] {
 export const DesignerQrCode: React.FC<DesignerQrCodeProps> = ({
   value,
   size = 120,
-  primaryColor = '#0F172A',
-  accentColor = '#0F766E',
+  primaryColor = '#1C1C1E',
+  accentColor = '#007AFF',
 }) => {
   const matrix = useMemo(() => generateRealQrMatrix(value || 'STK-0000'), [value]);
   const gridSize = 25;
