@@ -21,7 +21,7 @@ import { HTTPException } from 'hono/http-exception';
 import { secureHeaders } from 'hono/secure-headers';
 import { bodyLimit } from 'hono/body-limit';
 import { ZodError } from 'zod';
-import { Db } from './db';
+import { Db } from './db.js';
 import {
   checkPassword,
   clearFailures,
@@ -34,10 +34,10 @@ import {
   setPassword,
   tooManyAttempts,
   verifyToken,
-} from './auth';
-import { credentials, passwordChangeIn, setupIn, syncIn } from './validation';
-import { sync } from './sync';
-import { exportAll, getProduct, listProducts, listTransactions, monthlyReport, stockReport } from './reports';
+} from './auth.js';
+import { credentials, passwordChangeIn, setupIn, syncIn } from './validation.js';
+import { sync } from './sync.js';
+import { exportAll, getProduct, listProducts, listTransactions, monthlyReport, stockReport } from './reports.js';
 
 export interface AppConfig {
   jwtSecret: string;

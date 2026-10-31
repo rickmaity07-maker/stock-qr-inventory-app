@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
-import { createApp } from '../src/app';
-import { Db } from '../src/db';
-import { splitSql } from '../src/sqlSplit';
+import { createApp } from '../src/app.js';
+import { Db } from '../src/db.js';
+import { splitSql } from '../src/sqlSplit.js';
 
 const SCHEMA = fs.readFileSync(path.join(__dirname, '..', 'db', 'schema.sql'), 'utf8');
 const SECRET = 'test-secret-that-is-definitely-long-enough-123';

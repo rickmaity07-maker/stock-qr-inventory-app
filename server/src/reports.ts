@@ -1,6 +1,6 @@
 /** Read-only reports computed in SQL from the ledger. */
-import { Db } from './db';
-import { productOut } from './sync';
+import { Db } from './db.js';
+import { productOut } from './sync.js';
 
 export async function listProducts(db: Db, includeDeleted = false) {
   const rows = await db.query(
@@ -98,7 +98,7 @@ export async function listTransactions(db: Db, opts: { from?: string; to?: strin
      order by occurred_at desc limit $3`,
     [opts.from ?? null, opts.to ?? null, opts.limit]
   );
-  const { transactionOut } = await import('./sync');
+  const { transactionOut } = await import('./sync.js');
   return rows.map(transactionOut);
 }
 
@@ -107,7 +107,7 @@ export async function exportAll(db: Db) {
     db.query('select * from products order by name'),
     db.query('select * from transactions order by occurred_at'),
   ]);
-  const { transactionOut } = await import('./sync');
+  const { transactionOut } = await import('./sync.js');
   return {
     format: 'stockqr-backup',
     version: 1,

@@ -1,7 +1,7 @@
 /** Owner sign-in: bcrypt-hashed password, signed device tokens, rate-limited attempts. */
 import bcrypt from 'bcryptjs';
 import { jwtVerify, SignJWT } from 'jose';
-import { Db } from './db';
+import { Db } from './db.js';
 
 const TOKEN_DAYS = 180;
 const MAX_FAILED = 8;

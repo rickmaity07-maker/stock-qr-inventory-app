@@ -2,9 +2,9 @@
  * Emergency owner password reset (signs out every device):
  *   npm run set-password -- you@example.com "new password"
  */
-import { neonDb } from '../src/db';
-import { loadEnv } from '../src/env';
-import { setPassword } from '../src/auth';
+import { neonDb } from '../src/db.js';
+import { loadEnv } from '../src/env.js';
+import { setPassword } from '../src/auth.js';
 
 loadEnv();
 const [email, password] = process.argv.slice(2);

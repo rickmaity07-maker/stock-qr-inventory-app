@@ -2,9 +2,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { neonDb } from '../src/db';
-import { loadEnv } from '../src/env';
-import { splitSql } from '../src/sqlSplit';
+import { neonDb } from '../src/db.js';
+import { loadEnv } from '../src/env.js';
+import { splitSql } from '../src/sqlSplit.js';
 
 loadEnv();
 const url = process.env.DATABASE_URL;

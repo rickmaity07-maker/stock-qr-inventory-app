@@ -4,8 +4,8 @@
  *  - products: the newest edit (updatedAt) wins
  *  - transactions: insert once, never changed (a sale is a fact)
  */
-import { Db } from './db';
-import { productIn, ProductIn, transactionIn, TransactionIn } from './validation';
+import { Db } from './db.js';
+import { productIn, ProductIn, transactionIn, TransactionIn } from './validation.js';
 
 const PAGE = 2000;
 

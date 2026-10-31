@@ -1,8 +1,8 @@
 /** Local development server: npm run dev → http://localhost:8787/api/health */
 import { serve } from '@hono/node-server';
-import { createApp, configFromEnv } from './app';
-import { neonDb } from './db';
-import { loadEnv } from './env';
+import { createApp, configFromEnv } from './app.js';
+import { neonDb } from './db.js';
+import { loadEnv } from './env.js';
 
 loadEnv();
 const app = createApp(neonDb(process.env.DATABASE_URL as string), configFromEnv(process.env));
