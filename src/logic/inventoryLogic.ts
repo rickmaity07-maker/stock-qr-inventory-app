@@ -337,6 +337,7 @@ export function buildMonthlySummary(
 
   const grossProfit = totalRevenue - totalCostOfGoods;
   const allPerf = Array.from(perfMap.values());
+  const liveIds = new Set(activeProducts(products).map((p) => p.id));
 
   return {
     monthKey,
@@ -349,7 +350,7 @@ export function buildMonthlySummary(
     totalUnitsRestocked,
     restockSpend,
     bestSellers: allPerf.filter((i) => i.unitsSold > 0).sort((a, b) => b.grossProfit - a.grossProfit),
-    worstSellers: [...allPerf].sort((a, b) => a.unitsSold - b.unitsSold),
+    worstSellers: allPerf.filter((i) => liveIds.has(i.productId)).sort((a, b) => a.unitsSold - b.unitsSold),
     salesTransactions,
   };
 }
