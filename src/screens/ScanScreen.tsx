@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { QrCameraView } from '../components/QrCameraView';
+import { createScanGate } from '../logic/scanGate';
 import { Ionicons } from '@expo/vector-icons';
 import { currencySymbol } from '../logic/money';
 import { InventoryError, useInventory } from '../context/InventoryContext';
@@ -64,7 +65,6 @@ export default function ScannerScreen() {
 
   const modeColor = scannerMode === 'SELL' ? c.tint : scannerMode === 'RESTOCK' ? c.indigo : c.orange;
 
-  const [permission, requestPermission] = useCameraPermissions();
   const [cameraOn, setCameraOn] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [unknownCode, setUnknownCode] = useState<string | null>(null);
@@ -76,7 +76,8 @@ export default function ScannerScreen() {
   const [buyPrice, setBuyPrice] = useState('');
   const [expiry, setExpiry] = useState('');
   const [busy, setBusy] = useState(false);
-  const lastScan = useRef<{ code: string; at: number }>({ code: '', at: 0 });
+  // one sticker in front of the camera = one scan, until it leaves the view
+  const scanGate = useRef(createScanGate(1200)).current;
 
   // Always show the live product (stock may change on another phone while the sheet is open)
   const active = activeId ? getProduct(activeId) ?? null : null;
@@ -94,13 +95,10 @@ export default function ScannerScreen() {
   );
 
   const handleScanned = useCallback(
-    ({ data }: { data: string }) => {
+    (data: string) => {
       const code = String(data || '').trim();
       if (!code || sheetOpen) return;
-      // ignore the same code read again within 2 seconds (camera keeps seeing it)
-      const now = Date.now();
-      if (lastScan.current.code === code && now - lastScan.current.at < 2000) return;
-      lastScan.current = { code, at: now };
+      if (!scanGate.accept(code, Date.now())) return;
 
       const found = findProductByCode(code);
       if (found) openProduct(found);
@@ -109,13 +107,13 @@ export default function ScannerScreen() {
         setUnknownCode(code);
       }
     },
-    [sheetOpen, findProductByCode, openProduct]
+    [sheetOpen, findProductByCode, openProduct, scanGate]
   );
 
   const closeSheets = () => {
     setActiveId(null);
     setUnknownCode(null);
-    lastScan.current = { code: lastScan.current.code, at: Date.now() };
+    scanGate.hold(Date.now());
   };
 
   const demoBlocked = () => {
@@ -218,53 +216,6 @@ export default function ScannerScreen() {
     [active, transactions]
   );
 
-  const camera = () => {
-    if (!permission) {
-      return <Text style={[type.subhead, { color: c.secondaryLabel }]}>Checking camera access…</Text>;
-    }
-    if (!permission.granted) {
-      return (
-        <View style={{ alignItems: 'center', gap: space.sm, padding: space.xl }}>
-          <Ionicons name="camera-outline" size={40} color="#FFFFFF" />
-          <Text style={[type.headline, { color: '#FFFFFF', textAlign: 'center' }]}>Camera access is off</Text>
-          <Text style={[type.footnote, { color: 'rgba(255,255,255,0.7)', textAlign: 'center' }]}>
-            {permission.canAskAgain
-              ? 'Allow the camera to scan QR stickers and barcodes.'
-              : Platform.OS === 'web'
-              ? 'Allow camera access for this site in Safari settings, then reopen the app.'
-              : 'Turn on camera access for this app in your phone settings.'}
-          </Text>
-          {permission.canAskAgain ? (
-            <Button title="Allow camera" onPress={requestPermission} size="medium" style={{ marginTop: space.sm }} />
-          ) : null}
-        </View>
-      );
-    }
-    if (!cameraOn) {
-      return (
-        <View style={{ alignItems: 'center', gap: space.sm }}>
-          <Ionicons name="pause-circle-outline" size={40} color="#FFFFFF" />
-          <Button title="Resume camera" onPress={() => setCameraOn(true)} size="medium" variant="tinted" color="#FFFFFF" />
-        </View>
-      );
-    }
-    return (
-      <>
-        <CameraView
-          style={StyleSheet.absoluteFillObject}
-          facing="back"
-          barcodeScannerSettings={{
-            barcodeTypes: ['qr', 'ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39'],
-          }}
-          onBarcodeScanned={sheetOpen ? undefined : handleScanned}
-        />
-        <View pointerEvents="none" style={styles.reticleWrap}>
-          <View style={[styles.reticle, { borderColor: modeColor }]} />
-        </View>
-      </>
-    );
-  };
-
   return (
     <Screen>
       <LargeTitle title="Scan" accessory={<SyncIndicator />} />
@@ -288,8 +239,14 @@ export default function ScannerScreen() {
       ) : null}
 
       <View style={[styles.camera, { borderColor: modeColor }]}>
-        {camera()}
-        {permission?.granted ? (
+        <QrCameraView
+          enabled={cameraOn}
+          scanning={!sheetOpen}
+          onCode={handleScanned}
+          accentColor={modeColor}
+          onResume={() => setCameraOn(true)}
+        />
+        {cameraOn ? (
           <Tap
             onPress={() => setCameraOn((v) => !v)}
             accessibilityRole="button"

@@ -1,7 +1,7 @@
 {
-  "version": "v2.6.0",
-  "releasedAt": "2026-10-31T23:00:00.000Z",
-  "notes": "v2.6.0: cloud account \u2014 sign in on each phone to keep stock and sales in sync and backed up online. Replaces pairing codes.",
+  "version": "v2.6.1",
+  "releasedAt": "2026-11-01T00:30:00.000Z",
+  "notes": "v2.6.1: fixes the scanner reopening the same sale and freezing on iPhone. One sticker = one sale; move the phone away or tap the product to sell it again.",
   "apkDownloadUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/latest/download/Stock-QR-Inventory.apk",
   "clientDemoApkUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/latest/download/Stock-QR-Client-Demo-Locked.apk"
 }

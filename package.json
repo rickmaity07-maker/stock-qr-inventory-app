@@ -33,6 +33,7 @@
     "expo-updates": "~0.26.0",
     "jest": "~29.7.0",
     "jest-expo": "~52.0.6",
+    "jsqr": "^1.4.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-native": "0.76.9",
