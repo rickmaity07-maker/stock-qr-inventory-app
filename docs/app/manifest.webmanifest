@@ -1,0 +1,29 @@
+{
+  "name": "Stock & QR Inventory",
+  "short_name": "Stock QR",
+  "description": "Scan, sell and restock with QR codes. Works offline.",
+  "start_url": "/stock-qr-inventory-app/app/",
+  "scope": "/stock-qr-inventory-app/app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F2F7",
+  "theme_color": "#F2F2F7",
+  "icons": [
+    {
+      "src": "/stock-qr-inventory-app/app/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/stock-qr-inventory-app/app/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/stock-qr-inventory-app/app/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

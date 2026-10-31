@@ -2,16 +2,17 @@
   "expo": {
     "name": "Stock & QR Inventory",
     "slug": "stock-qr-inventory-app",
-    "version": "2.3.0",
+    "version": "2.5.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
-    "primaryColor": "#0D9488",
+    "primaryColor": "#007AFF",
     "android": {
       "package": "com.stockqr.inventory",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
-        "backgroundColor": "#0D9488"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#007AFF"
       },
       "permissions": [
         "android.permission.CAMERA",
@@ -26,6 +27,26 @@
           "cameraPermission": "Allow Stock & QR Inventory to use the camera to scan product QR codes and factory barcodes."
         }
       ]
-    ]
+    ],
+    "icon": "./assets/icon.png",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.stockqr.inventory",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Scan product QR codes and factory barcodes."
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "name": "Stock & QR Inventory",
+      "shortName": "Stock QR",
+      "themeColor": "#F2F2F7",
+      "backgroundColor": "#F2F2F7",
+      "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "baseUrl": "/stock-qr-inventory-app/app"
+    }
   }
 }

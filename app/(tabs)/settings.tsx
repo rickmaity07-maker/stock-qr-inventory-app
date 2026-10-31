@@ -1,707 +1,359 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Switch,
-  Alert,
-  Linking,
-  Platform,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as Updates from 'expo-updates';
+import { Linking, Platform, Switch, Text, View } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
-import { useInventory, MASTER_LICENSE_KEY } from '../../src/context/InventoryContext';
+import * as Updates from 'expo-updates';
+import { Ionicons } from '@expo/vector-icons';
+import { APP_VERSION, useInventory } from '../../src/context/InventoryContext';
+import { DesignerQrCode } from '../../src/components/DesignerQrCode';
+import { buildPairingPayload } from '../../src/logic/inventoryLogic';
+import {
+  Button,
+  Field,
+  IconTile,
+  LargeTitle,
+  Notice,
+  Row,
+  Screen,
+  Section,
+  Sheet,
+} from '../../src/ui/components';
+import { confirmAction, showAlert } from '../../src/ui/dialog';
+import { radius, space, type, usePalette } from '../../src/ui/theme';
 
-export const APP_VERSION = 'v2.4.0';
-const CLIENT_LOCKED_DEMO_WEB_URL =
-  'https://rickmaity07-maker.github.io/stock-qr-inventory-app/client-demo.html';
+const CLIENT_DEMO_WEB_URL = 'https://rickmaity07-maker.github.io/stock-qr-inventory-app/client-demo.html';
 
 export default function SettingsScreen() {
+  const c = usePalette();
+  const inv = useInventory();
   const {
     role,
-    ownerPin,
+    pinIsDefault,
+    pinLockedUntil,
     cloudConfig,
+    syncMode,
+    syncCode,
     isSyncing,
     lastSyncedAt,
+    lastSyncError,
     unsyncedCount,
+    isSampleData,
     isClientDemoLocked,
-    enableClientDemoLock,
-    unlockClientDemo,
-    switchToStaffRole,
-    unlockOwnerRole,
-    updateOwnerPin,
-    updateCloudConfig,
-    syncWithCloud,
-    resetToDemoData,
-    pullOnlineUpdateFromGitHub,
-  } = useInventory();
+  } = inv;
+  const isOwner = role === 'OWNER' && !isClientDemoLocked;
 
-  const [pinAttempt, setPinAttempt] = useState<string>('');
-  const [newPin, setNewPin] = useState<string>('');
-  const [licenseKeyInput, setLicenseKeyInput] = useState<string>('');
-  const [supabaseUrl, setSupabaseUrl] = useState<string>(cloudConfig.supabaseUrl);
-  const [supabaseKey, setSupabaseKey] = useState<string>(cloudConfig.supabaseAnonKey);
-  const [autoSync, setAutoSync] = useState<boolean>(cloudConfig.autoSyncEnabled);
-  const [checkingOta, setCheckingOta] = useState<boolean>(false);
-  const [otaProgress, setOtaProgress] = useState<number>(0);
-  const [otaStatusText, setOtaStatusText] = useState<string>('Check GitHub for the latest app version. Android will ask you to approve the install.');
-  const [latestOnlineTag, setLatestOnlineTag] = useState<string | null>(null);
+  const [pin, setPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [pairVisible, setPairVisible] = useState(false);
+  const [joinVisible, setJoinVisible] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
+  const [cloudVisible, setCloudVisible] = useState(false);
+  const [url, setUrl] = useState(cloudConfig.supabaseUrl);
+  const [key, setKey] = useState(cloudConfig.supabaseAnonKey);
+  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
-  const handleUnlockOwner = async () => {
+  // ---- roles -------------------------------------------------------------
+
+  const unlockOwner = async () => {
     if (isClientDemoLocked) {
-      const okDemo = await unlockClientDemo(pinAttempt);
-      if (okDemo) {
-        setPinAttempt('');
-        Alert.alert('Full Version Unlocked', 'Client Demo lock removed and Owner Mode enabled.');
-      } else {
-        Alert.alert(
-          '🔒 Client Preview Locked',
-          'Enter the Developer Master License Key to unlock full Owner access.'
-        );
-      }
+      const ok = await inv.unlockClientDemo(pin);
+      setPin('');
+      showAlert(ok ? 'Full version unlocked' : 'That key did not work', ok ? 'Owner mode is on.' : undefined);
       return;
     }
-    const ok = await unlockOwnerRole(pinAttempt);
-    if (ok) {
-      setPinAttempt('');
-      Alert.alert('Owner Mode Active', 'Full access to buying prices, revenue, and profit unlocked.');
-    } else {
-      Alert.alert('Invalid PIN', 'Incorrect Owner PIN. Default PIN is 1234.');
-    }
+    const res = await inv.unlockOwnerRole(pin);
+    setPin('');
+    if (res === 'wrong') showAlert('Wrong PIN', 'Try again.');
+    if (res === 'locked') showAlert('Too many attempts', 'Wait 30 seconds and try again.');
   };
 
-  const handleUnlockClientDemo = async () => {
-    const ok = await unlockClientDemo(licenseKeyInput);
-    if (ok) {
-      setLicenseKeyInput('');
-      Alert.alert(
-        'Full Mobile Store App Unlocked',
-        'Client Demo restrictions have been removed.'
-      );
-    } else {
-      Alert.alert(
-        'Invalid License Key',
-        'Incorrect license key. Contact the developer to unlock the full Mobile Store system.'
-      );
-    }
-  };
-
-  const handleChangePin = async () => {
-    if (isClientDemoLocked) {
-      Alert.alert('🔒 Locked in Client Preview', 'Changing Owner PIN is disabled in Client Demo mode.');
-      return;
-    }
-    if (newPin.trim().length < 4) {
-      Alert.alert('PIN Too Short', 'Please enter at least 4 digits for the Owner PIN.');
-      return;
-    }
-    await updateOwnerPin(newPin);
-    setNewPin('');
-    Alert.alert('PIN Updated', 'Your Owner PIN has been updated.');
-  };
-
-  const handleSaveCloudSettings = async () => {
-    if (isClientDemoLocked) {
-      Alert.alert(
-        '🔒 Locked in Client Preview',
-        'Cloud database sync configuration is disabled in the Client Demo Preview.'
-      );
-      return;
-    }
-    await updateCloudConfig({
-      supabaseUrl: supabaseUrl.trim(),
-      supabaseAnonKey: supabaseKey.trim(),
-      autoSyncEnabled: autoSync,
-    });
-    const res = await syncWithCloud();
-    Alert.alert(res.ok ? 'Live Sync Connected' : 'Saved Locally', res.message);
-  };
-
-  const handleCheckOnlineUpdate = async () => {
-    setCheckingOta(true);
-    setOtaProgress(18);
-    setOtaStatusText('Connecting to Over-The-Air (OTA) update server...');
+  const changePin = async () => {
     try {
-      await new Promise((r) => setTimeout(r, 350));
-      setOtaProgress(55);
-      setOtaStatusText('Checking the latest app version on GitHub...');
+      await inv.updateOwnerPin(newPin);
+      setNewPin('');
+      showAlert('PIN updated', 'Use the new PIN next time you unlock owner mode.');
+    } catch (e) {
+      showAlert('PIN not changed', e instanceof Error ? e.message : String(e));
+    }
+  };
 
-      // 1. Pull & apply live Mobile Store delta patch & QR connections in-place
-      const liveRes = await pullOnlineUpdateFromGitHub();
-      setLatestOnlineTag(liveRes.version);
+  // ---- sync --------------------------------------------------------------
 
-      const versionParts = (version: string) =>
-        version.replace(/^v/i, '').split('.').map((part) => Number(part) || 0);
-      const latestParts = versionParts(liveRes.version);
-      const installedParts = versionParts(APP_VERSION);
-      let isNewerVersion = false;
-      for (let index = 0; index < Math.max(latestParts.length, installedParts.length); index += 1) {
-        const latestPart = latestParts[index] || 0;
-        const installedPart = installedParts[index] || 0;
-        if (latestPart !== installedPart) {
-          isNewerVersion = latestPart > installedPart;
-          break;
-        }
-      }
+  const syncNow = async () => {
+    const res = await inv.syncWithCloud();
+    showAlert(res.ok ? 'Synced' : 'Not synced', res.message);
+  };
 
-      if (Platform.OS === 'android' && isNewerVersion) {
-        setOtaProgress(68);
-        setOtaStatusText(`Downloading ${liveRes.version} from GitHub...`);
-        const apkDirectory = FileSystem.cacheDirectory || FileSystem.documentDirectory;
-        if (!apkDirectory) throw new Error('No local storage available for the APK download.');
-        const apkUri = `${apkDirectory}stock-qr-inventory-${liveRes.version}.apk`;
-        const download = await FileSystem.downloadAsync(liveRes.apkUrl, apkUri);
-        if (download.status < 200 || download.status >= 300) {
-          throw new Error(`APK download failed with HTTP ${download.status}`);
-        }
-        const contentUri = await FileSystem.getContentUriAsync(download.uri);
-        setOtaProgress(95);
-        setOtaStatusText('Opening Android installer...');
-        await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.VIEW, {
-          data: contentUri,
-          type: 'application/vnd.android.package-archive',
-          flags: 1,
-        });
-        setOtaProgress(100);
-        setOtaStatusText(`Downloaded ${liveRes.version}. Approve the Android prompt to install.`);
+  const toggleAutoSync = (on: boolean) => inv.updateCloudConfig({ ...cloudConfig, autoSyncEnabled: on });
+
+  const join = async () => {
+    const res = await inv.joinStoreSync(joinCode);
+    if (res.ok) {
+      setJoinVisible(false);
+      setJoinCode('');
+    }
+    showAlert(res.ok ? 'Phone paired' : 'Could not pair', res.message);
+  };
+
+  const resetPairing = async () => {
+    const ok = await confirmAction({
+      title: 'Create a new store code?',
+      message: 'Phones paired with the old code stop receiving updates until you pair them again. Use this if a phone was lost.',
+      confirmText: 'New code',
+      destructive: true,
+    });
+    if (ok) await inv.createNewSyncCode();
+  };
+
+  const saveCloud = async () => {
+    if (url.trim() && !/^https:\/\//i.test(url.trim())) {
+      showAlert('Check the URL', 'The Supabase project URL starts with https://');
+      return;
+    }
+    await inv.updateCloudConfig({ supabaseUrl: url, supabaseAnonKey: key, autoSyncEnabled: cloudConfig.autoSyncEnabled });
+    setCloudVisible(false);
+    if (url.trim() && key.trim()) {
+      const res = await inv.syncWithCloud();
+      showAlert(res.ok ? 'Supabase connected' : 'Saved, but not synced yet', res.message);
+    }
+  };
+
+  // ---- updates -----------------------------------------------------------
+
+  const checkUpdates = async () => {
+    setChecking(true);
+    setUpdateStatus('Checking…');
+    try {
+      if (Platform.OS === 'web') {
+        const sw = (globalThis as any).navigator?.serviceWorker;
+        const reg = await sw?.getRegistration?.();
+        await reg?.update?.();
+        setUpdateStatus('Reloading with the latest version…');
+        (globalThis as any).location?.reload();
         return;
       }
-
-      setOtaProgress(88);
-      setOtaStatusText('Checking for any configured Expo app update...');
-      await new Promise((r) => setTimeout(r, 350));
-
-      // 2. Also check Expo Over-The-Air (OTA) bundle updates if running in EAS
-      if (!__DEV__) {
-        try {
-          const update = await Updates.checkForUpdateAsync();
-          if (update.isAvailable) {
-            await Updates.fetchUpdateAsync();
-            await Updates.reloadAsync();
-            return;
-          }
-        } catch {
-          // Handled seamlessly by delta OTA engine above
+      const info = await inv.checkForAppUpdate();
+      if (Platform.OS === 'android' && info.isNewer && info.apkUrl) {
+        const go = await confirmAction({
+          title: `Install ${info.latestVersion}?`,
+          message: info.notes || 'A newer version is available.',
+          confirmText: 'Download',
+        });
+        if (!go) {
+          setUpdateStatus(`${info.latestVersion} is available.`);
+          return;
+        }
+        setUpdateStatus(`Downloading ${info.latestVersion}…`);
+        const dir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+        if (!dir) throw new Error('No storage available for the download.');
+        const target = `${dir}stock-qr-inventory-${info.latestVersion}.apk`;
+        const dl = await FileSystem.downloadAsync(info.apkUrl, target);
+        if (dl.status < 200 || dl.status >= 300) throw new Error(`Download failed (HTTP ${dl.status}).`);
+        const contentUri = await FileSystem.getContentUriAsync(dl.uri);
+        setUpdateStatus('Approve the Android prompt to finish installing.');
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: contentUri,
+          type: 'application/vnd.android.package-archive',
+          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+        });
+        return;
+      }
+      if (!__DEV__ && Updates.isEnabled) {
+        const res = await Updates.checkForUpdateAsync().catch(() => null);
+        if (res?.isAvailable) {
+          setUpdateStatus('Applying update…');
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+          return;
         }
       }
-
-      setOtaProgress(100);
-      setOtaStatusText(`App is up to date (${liveRes.version}).`);
-      Alert.alert('App is up to date', `${liveRes.version}\n\n${liveRes.notes}`);
-    } catch (err: any) {
-      setOtaProgress(100);
-      setOtaStatusText('Could not check for updates. Try again when online.');
-      Alert.alert('Update unavailable', err?.message || 'Could not download the update. Please try again.');
+      setUpdateStatus(`You have the latest version (${APP_VERSION}).`);
+    } catch (e) {
+      setUpdateStatus(e instanceof Error ? e.message : 'Could not check for updates.');
     } finally {
-      setCheckingOta(false);
+      setChecking(false);
     }
   };
 
+  // ---- data --------------------------------------------------------------
+
+  const startFresh = async () => {
+    const ok = await confirmAction({
+      title: 'Start your own store?',
+      message: 'This removes the sample products and sales from this phone and gives the store a new pairing code. This cannot be undone.',
+      confirmText: 'Start fresh',
+      destructive: true,
+    });
+    if (ok) await inv.startFreshStore();
+  };
+
+  const restoreSample = async () => {
+    const ok = await confirmAction({
+      title: 'Load sample data?',
+      message: 'Replaces everything on this phone with the sample phone-shop catalogue. Use it for demos only.',
+      confirmText: 'Load sample',
+      destructive: true,
+    });
+    if (ok) await inv.resetToDemoData();
+  };
+
+  const lockDemo = async () => {
+    const ok = await confirmAction({
+      title: 'Switch to preview mode?',
+      message: 'For showing the app to a client: editing, printing and exports are locked and only 3 demo scans are allowed. Unlock later with the owner PIN.',
+      confirmText: 'Lock',
+    });
+    if (ok) await inv.enableClientDemoLock();
+  };
+
+  const syncSubtitle =
+    syncMode === 'supabase'
+      ? 'Supabase database'
+      : syncMode === 'relay'
+      ? 'Paired phones (automatic)'
+      : 'Off — this phone only';
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* 1. CLIENT DEMO LOCK / PREVIEW MODE CONTROL */}
-      <View style={[styles.card, isClientDemoLocked && styles.cardDemoLocked]}>
-        <View style={styles.cardHeaderRow}>
-          <Ionicons
-            name={isClientDemoLocked ? 'lock-closed' : 'shield-Half-outline' as any}
-            size={20}
-            color={isClientDemoLocked ? '#DC2626' : '#007AFF'}
-          />
-          <Text style={styles.cardTitle}>
-            {isClientDemoLocked
-              ? '🔒 Client Preview Mode (Locked)'
-              : 'Client Showcase & Demo Lock'}
-          </Text>
-        </View>
-        <Text style={styles.cardDesc}>
-          {isClientDemoLocked
-            ? 'This build is locked for client demonstration. Editing inventory, printing QR stickers, and exporting reports are blocked until unlocked with your Developer License Key.'
-            : 'Showing the app to a potential client? Lock the app into "Blocked Client Preview Mode" or share the locked Client Demo link so they can see how it works without getting full access.'}
-        </Text>
+    <Screen>
+      <LargeTitle title="Settings" />
 
-        {isClientDemoLocked ? (
-          <View style={styles.pinUnlockRow}>
-            <TextInput
-              style={[styles.input, { flex: 1, marginBottom: 0 }]}
-              placeholder="Enter Developer Unlock Key"
+      {isOwner && pinIsDefault ? (
+        <Notice tone="orange" icon="key-outline" title="Change the owner PIN" message="The PIN is still the default 1234, so anyone can see profit and buying prices." />
+      ) : null}
+
+      {/* Access */}
+      <Section header="Access" footer="The owner sees buying prices, profit and reports. Staff can sell, restock and view stock.">
+        <Row
+          title={isClientDemoLocked ? 'Preview mode' : role === 'OWNER' ? 'Owner' : 'Staff'}
+          subtitle="This phone's role"
+          left={<IconTile name={role === 'OWNER' && !isClientDemoLocked ? 'shield-checkmark' : 'person'} color={role === 'OWNER' && !isClientDemoLocked ? c.indigo : c.gray} />}
+        />
+        {isOwner ? (
+          <>
+            <Row title="Switch to staff mode" tinted onPress={inv.switchToStaffRole} />
+            <Field label="New owner PIN (4–8 digits)" value={newPin} onChangeText={(t) => setNewPin(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" secureTextEntry maxLength={8} />
+            <Row title="Save new PIN" tinted disabled={newPin.length < 4} onPress={changePin} />
+          </>
+        ) : (
+          <>
+            <Field
+              label={isClientDemoLocked ? 'Licence key or owner PIN' : 'Owner PIN'}
+              value={pin}
+              onChangeText={setPin}
+              keyboardType={isClientDemoLocked ? 'default' : 'number-pad'}
               autoCapitalize="characters"
-              value={licenseKeyInput}
-              onChangeText={setLicenseKeyInput}
-            />
-            <TouchableOpacity style={styles.unlockBtn} onPress={handleUnlockClientDemo}>
-              <Text style={styles.unlockBtnText}>Unlock App</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={{ gap: 8 }}>
-            <TouchableOpacity
-              style={styles.lockDemoBtn}
-              onPress={() => {
-                enableClientDemoLock();
-                Alert.alert(
-                  '🔒 Client Demo Lock Enabled',
-                  `The app is now in Blocked Client Preview Mode (watermarked, 3-scan limit, editing/printing/export blocked). Unlock anytime using key: ${MASTER_LICENSE_KEY} or PIN ${ownerPin}.`
-                );
-              }}
-            >
-              <Ionicons name="lock-closed-outline" size={17} color="#FFFFFF" />
-              <Text style={styles.lockDemoBtnText}>
-                Activate Blocked Client Demo Mode on This Phone
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.secondaryFullBtn}
-              onPress={() => Linking.openURL(CLIENT_LOCKED_DEMO_WEB_URL)}
-            >
-              <Ionicons name="share-social-outline" size={17} color="#007AFF" />
-              <Text style={styles.secondaryFullBtnText}>
-                Open Shareable Blocked Client Web Link
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      {/* 2. AUTOMATIC OVER-THE-AIR (OTA) SOFTWARE UPDATES */}
-      <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <Ionicons name="cloud-done-outline" size={20} color="#007AFF" />
-          <Text style={styles.cardTitle}>Install App Update</Text>
-        </View>
-        <Text style={styles.cardDesc}>
-          Android downloads the latest signed APK from GitHub and opens the system installer. Approve the Android prompt to finish. Installed: {APP_VERSION} · Latest: {latestOnlineTag || 'Not checked'}.
-        </Text>
-
-        <View
-          style={{
-            backgroundColor: '#EAF3FF',
-            borderWidth: 1,
-            borderColor: '#BFDBFE',
-            borderRadius: 10,
-            padding: 10,
-            marginBottom: 10,
-          }}
-        >
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#007AFF' }}>
-            {otaStatusText}
-          </Text>
-          {otaProgress > 0 && (
-            <View
-              style={{
-                height: 6,
-                backgroundColor: '#DBEAFE',
-                borderRadius: 3,
-                marginTop: 8,
-                overflow: 'hidden',
-              }}
-            >
-              <View
-                style={{
-                  width: `${otaProgress}%`,
-                  height: '100%',
-                  backgroundColor: '#007AFF',
-                }}
-              />
-            </View>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={handleCheckOnlineUpdate}
-          disabled={checkingOta}
-        >
-          <Ionicons name="sparkles-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.primaryBtnText}>
-            {checkingOta
-              ? 'Checking for App Update...'
-              : 'Check & Install App Update'}
-          </Text>
-        </TouchableOpacity>
-
-        {role === 'OWNER' && !isClientDemoLocked && (
-          <TouchableOpacity
-            style={styles.resetDemoBtn}
-            onPress={() =>
-              Alert.alert(
-                'Reset Mobile Store Sample Inventory?',
-                'Restore the default Mobile Phone Store products (iPhone 16 Pro Max, S24 Ultra, AirPods Pro, Chargers, Cases) and multi-month sales history?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Reset Mobile Data',
-                    style: 'destructive',
-                    onPress: resetToDemoData,
-                  },
-                ]
-              )
-            }
-          >
-            <Ionicons name="refresh-outline" size={16} color="#8E8E93" />
-            <Text style={styles.resetDemoBtnText}>Restore Default Mobile Store Inventory</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* 3. MULTIPLE USERS & ROLES */}
-      <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <Ionicons name="people-outline" size={20} color="#007AFF" />
-          <Text style={styles.cardTitle}>Users & Role Permissions</Text>
-        </View>
-        <Text style={styles.cardDesc}>
-          The Owner sees everything including buying prices, monthly revenue, and gross profit. Staff accounts can only sell, restock, and view stock.
-        </Text>
-
-        <View style={styles.roleStatusBox}>
-          <View>
-            <Text style={styles.roleLabel}>Active Device Role</Text>
-            <Text style={styles.roleValue}>
-              {isClientDemoLocked
-                ? 'Client Demo (Blocked)'
-                : role === 'OWNER'
-                ? 'Owner (Full Access)'
-                : 'Staff (Restricted)'}
-            </Text>
-          </View>
-
-          {role === 'OWNER' && !isClientDemoLocked ? (
-            <TouchableOpacity style={styles.switchStaffBtn} onPress={switchToStaffRole}>
-              <Ionicons name="lock-closed-outline" size={16} color="#FFFFFF" />
-              <Text style={styles.switchStaffBtnText}>Switch to Staff Mode</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.staffBadge}>
-              <Text style={styles.staffBadgeText}>Profit Hidden</Text>
-            </View>
-          )}
-        </View>
-
-        {role === 'STAFF' || isClientDemoLocked ? (
-          <View style={styles.pinUnlockRow}>
-            <TextInput
-              style={[styles.input, { flex: 1, marginBottom: 0 }]}
-              placeholder="Owner PIN (Default: 1234)"
-              keyboardType="number-pad"
               secureTextEntry
-              value={pinAttempt}
-              onChangeText={setPinAttempt}
+              onSubmitEditing={unlockOwner}
             />
-            <TouchableOpacity style={styles.unlockBtn} onPress={handleUnlockOwner}>
-              <Text style={styles.unlockBtnText}>Unlock Owner</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.pinUnlockRow}>
-            <TextInput
-              style={[styles.input, { flex: 1, marginBottom: 0 }]}
-              placeholder={`New Owner PIN (Current: ${ownerPin})`}
-              keyboardType="number-pad"
-              value={newPin}
-              onChangeText={setNewPin}
-            />
-            <TouchableOpacity style={styles.secondaryBtn} onPress={handleChangePin}>
-              <Text style={styles.secondaryBtnText}>Update PIN</Text>
-            </TouchableOpacity>
-          </View>
+            <Row title={Date.now() < pinLockedUntil ? 'Try again in a moment' : 'Unlock'} tinted disabled={!pin || Date.now() < pinLockedUntil} onPress={unlockOwner} />
+          </>
         )}
-      </View>
+      </Section>
 
-      {/* 4. LIVE SYNC ACROSS DEVICES & OFFLINE SUPPORT */}
-      <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <Ionicons name="cloud-done-outline" size={20} color="#007AFF" />
-          <Text style={styles.cardTitle}>Live Sync & Offline Queue</Text>
-        </View>
-        <Text style={styles.cardDesc}>
-          Scanning keeps working without internet. Everything saves on the device and syncs automatically via Supabase (PostgreSQL) once connected.
-        </Text>
-
-        <View style={styles.syncStatsRow}>
-          <View style={styles.syncStatBox}>
-            <Text style={styles.syncStatLabel}>Offline Queue</Text>
-            <Text style={styles.syncStatVal}>{unsyncedCount} pending</Text>
-          </View>
-          <View style={styles.syncStatBox}>
-            <Text style={styles.syncStatLabel}>Last Cloud Sync</Text>
-            <Text style={styles.syncStatVal}>
-              {lastSyncedAt
-                ? new Date(lastSyncedAt).toLocaleTimeString('en-GB', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                : 'Local Offline Mode'}
-            </Text>
-          </View>
-        </View>
-
-        <Text style={styles.fieldLabel}>Supabase Project URL</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="https://your-project.supabase.co"
-          autoCapitalize="none"
-          value={supabaseUrl}
-          onChangeText={setSupabaseUrl}
+      {/* Sync */}
+      <Section
+        header="Sync between phones"
+        footer={
+          syncMode === 'relay'
+            ? 'Every change is shared within seconds with phones paired to this store. Scanning keeps working offline and catches up later.'
+            : undefined
+        }
+      >
+        <Row title="Sync" subtitle={syncSubtitle} left={<IconTile name="sync" color={c.green} />} />
+        <Row
+          title="Automatic sync"
+          right={<Switch value={cloudConfig.autoSyncEnabled} onValueChange={toggleAutoSync} disabled={!isOwner} trackColor={{ true: c.green, false: c.fillStrong }} thumbColor="#FFFFFF" {...({ activeThumbColor: "#FFFFFF" } as object)} />}
         />
-
-        <Text style={styles.fieldLabel}>Supabase Anon Public Key</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
-          autoCapitalize="none"
-          secureTextEntry
-          value={supabaseKey}
-          onChangeText={setSupabaseKey}
+        <Row
+          title="Status"
+          value={
+            isSyncing
+              ? 'Syncing…'
+              : unsyncedCount > 0
+              ? `${unsyncedCount} waiting`
+              : lastSyncedAt
+              ? `Up to date ${new Date(lastSyncedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+              : 'Not synced yet'
+          }
         />
+        {syncMode !== 'off' ? <Row title="Sync now" tinted onPress={syncNow} disabled={isSyncing} /> : null}
+        {isOwner && syncMode !== 'supabase' ? (
+          <>
+            <Row title="Show pairing code" subtitle="Scan it from another phone to share this store" chevron onPress={() => setPairVisible(true)} />
+            <Row title="Pair with another store" subtitle="Enter or scan the other phone's code" chevron onPress={() => setJoinVisible(true)} />
+          </>
+        ) : null}
+        {isOwner ? (
+          <Row title="Supabase database (advanced)" value={syncMode === 'supabase' ? 'On' : 'Off'} chevron onPress={() => setCloudVisible(true)} />
+        ) : null}
+      </Section>
+      {lastSyncError ? (
+        <Notice tone="orange" icon="cloud-offline-outline" title="Last sync failed" message={lastSyncError} />
+      ) : null}
 
-        <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Real-Time Live Sync Across All Store Phones</Text>
-          <Switch
-            value={autoSync}
-            onValueChange={setAutoSync}
-            trackColor={{ false: '#D1D1D6', true: '#99F6E4' }}
-            thumbColor={autoSync ? '#007AFF' : '#8E8E93'}
-          />
-        </View>
+      {/* Updates */}
+      <Section header="App" footer={updateStatus || undefined}>
+        <Row title="Version" value={APP_VERSION} />
+        <Row title={checking ? 'Checking…' : 'Check for updates'} tinted onPress={checkUpdates} disabled={checking} />
+      </Section>
 
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={handleSaveCloudSettings}
-          disabled={isSyncing}
-        >
-          <Ionicons name="sync-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.primaryBtnText}>
-            {isSyncing ? 'Syncing with Cloud...' : 'Save & Sync Now'}
+      {/* Data */}
+      {isOwner ? (
+        <Section header="Data" footer={isSampleData ? 'This phone has sample products. Start fresh when you are ready to enter your own.' : undefined}>
+          {isSampleData ? <Row title="Start my own store" tinted onPress={startFresh} /> : null}
+          <Row title="Load sample data" destructive onPress={restoreSample} />
+        </Section>
+      ) : null}
+
+      {/* Client preview */}
+      {isOwner ? (
+        <Section header="Showing a client" footer="Preview mode locks editing, printing and exports, and allows 3 demo scans.">
+          <Row title="Lock this phone in preview mode" left={<Ionicons name="lock-closed-outline" size={20} color={c.tint} />} tinted onPress={lockDemo} />
+          <Row title="Open the web demo link" left={<Ionicons name="share-outline" size={20} color={c.tint} />} tinted onPress={() => Linking.openURL(CLIENT_DEMO_WEB_URL)} />
+        </Section>
+      ) : null}
+
+      {/* Pairing code sheet */}
+      <Sheet visible={pairVisible} title="Pairing code" onClose={() => setPairVisible(false)} closeLabel="Done">
+        <View style={{ alignItems: 'center', padding: space.xl, gap: space.md }}>
+          <View style={{ backgroundColor: '#FFFFFF', padding: space.md, borderRadius: radius.xl }}>
+            <DesignerQrCode value={buildPairingPayload(syncCode)} size={230} />
+          </View>
+          <Text style={[type.subhead, { color: c.secondaryLabel, textAlign: 'center' }]}>
+            On the other phone, open Scan and point it at this code. It will ask to join this store.
           </Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          <Text selectable style={[type.footnote, { color: c.tertiaryLabel, textAlign: 'center' }]}>
+            {syncCode}
+          </Text>
+        </View>
+        <Section footer="Only share this code with your own staff — anyone who has it can see and change this store's stock.">
+          <Row title="Create a new code" destructive onPress={resetPairing} />
+        </Section>
+      </Sheet>
+
+      {/* Join sheet */}
+      <Sheet
+        visible={joinVisible}
+        title="Pair with store"
+        onClose={() => setJoinVisible(false)}
+        action={{ label: 'Pair', onPress: join, disabled: joinCode.trim().length < 20 }}
+      >
+        <Section footer="Easiest: open the Scan tab and scan the pairing QR shown on the other phone. Or type the code shown under it.">
+          <Field label="Store code" value={joinCode} onChangeText={setJoinCode} autoCapitalize="none" autoCorrect={false} placeholder="e.g. k3f9…" />
+        </Section>
+      </Sheet>
+
+      {/* Supabase sheet */}
+      <Sheet visible={cloudVisible} title="Supabase" onClose={() => setCloudVisible(false)} action={{ label: 'Save', onPress: saveCloud }}>
+        <Section footer="Optional. Use your own Supabase project instead of automatic pairing. Run supabase/schema.sql in its SQL editor first. Leave both empty to switch back to automatic pairing.">
+          <Field label="Project URL" value={url} onChangeText={setUrl} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://xyz.supabase.co" />
+          <Field label="Anon key" value={key} onChangeText={setKey} autoCapitalize="none" autoCorrect={false} secureTextEntry placeholder="eyJ…" />
+        </Section>
+        <View style={{ padding: space.lg }}>
+          <Button title="Save and sync" onPress={saveCloud} />
+        </View>
+      </Sheet>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  content: {
-    padding: 16,
-    gap: 14,
-    paddingBottom: 32,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 1,
-  },
-  cardDemoLocked: {
-    backgroundColor: '#FFF5F5',
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#000000',
-    letterSpacing: -0.3,
-  },
-  cardDesc: {
-    fontSize: 12.5,
-    color: '#8E8E93',
-    marginTop: 5,
-    marginBottom: 14,
-    lineHeight: 18,
-  },
-  roleStatusBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 12,
-  },
-  roleLabel: {
-    fontSize: 11,
-    color: '#8E8E93',
-    fontWeight: '500',
-  },
-  roleValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#000000',
-    marginTop: 2,
-    letterSpacing: -0.2,
-  },
-  switchStaffBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#5856D6',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    gap: 5,
-  },
-  switchStaffBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  staffBadge: {
-    backgroundColor: 'rgba(88, 86, 214, 0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-  },
-  staffBadgeText: {
-    color: '#5856D6',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  pinUnlockRow: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#3A3A3C',
-    marginBottom: 6,
-  },
-  input: {
-    height: 44,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    fontSize: 14,
-    color: '#000000',
-    marginBottom: 10,
-  },
-  unlockBtn: {
-    backgroundColor: '#007AFF',
-    height: 44,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    justifyContent: 'center',
-  },
-  unlockBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  lockDemoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FF3B30',
-    paddingVertical: 13,
-    borderRadius: 14,
-    gap: 8,
-  },
-  lockDemoBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 13.5,
-  },
-  secondaryBtn: {
-    backgroundColor: '#F2F2F7',
-    height: 44,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    justifyContent: 'center',
-  },
-  secondaryBtnText: {
-    color: '#007AFF',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  syncStatsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
-  },
-  syncStatBox: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-    padding: 12,
-    borderRadius: 14,
-  },
-  syncStatLabel: {
-    fontSize: 11,
-    color: '#8E8E93',
-  },
-  syncStatVal: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#000000',
-    marginTop: 2,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 6,
-  },
-  toggleLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#3A3A3C',
-  },
-  primaryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    borderRadius: 14,
-    marginTop: 8,
-    gap: 8,
-  },
-  primaryBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  secondaryFullBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    paddingVertical: 13,
-    borderRadius: 14,
-    gap: 8,
-  },
-  secondaryFullBtnText: {
-    color: '#007AFF',
-    fontWeight: '600',
-    fontSize: 13.5,
-  },
-  resetDemoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 14,
-    paddingVertical: 8,
-    gap: 6,
-  },
-  resetDemoBtnText: {
-    color: '#8E8E93',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-});

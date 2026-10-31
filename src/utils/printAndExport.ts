@@ -1,8 +1,10 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
+import { Platform } from 'react-native';
+import { csvCell, localMonthKey } from '../logic/inventoryLogic';
 import { MonthlySummary, Product } from '../types/inventory';
-import { generateRealQrMatrix } from '../components/DesignerQrCode';
+import { generateRealQrMatrix, isFinderCenter } from '../components/DesignerQrCode';
 
 /**
  * Generates a 100% optically scannable ISO/IEC 18004 Reed-Solomon Designer QR Code SVG.
@@ -15,8 +17,8 @@ export function buildDesignerQrSvg(
   accentColor: string = '#0D9488'
 ): string {
   const matrix = generateRealQrMatrix(qrValue || 'STK-0000');
-  const gridSize = 25;
-  const quietZone = 3;
+  const gridSize = matrix.length;
+  const quietZone = 4;
   const totalModules = gridSize + quietZone * 2;
   const cell = sizePx / totalModules;
 
@@ -24,11 +26,7 @@ export function buildDesignerQrSvg(
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize; c++) {
       if (matrix[r][c]) {
-        const isFinderCenter =
-          (r >= 2 && r <= 4 && c >= 2 && c <= 4) ||
-          (r >= 2 && r <= 4 && c >= 20 && c <= 22) ||
-          (r >= 20 && r <= 22 && c >= 2 && c <= 4);
-        const fill = isFinderCenter ? accentColor : primaryColor;
+        const fill = isFinderCenter(r, c, gridSize) ? accentColor : primaryColor;
         const x = ((c + quietZone) * cell).toFixed(2);
         const y = ((r + quietZone) * cell).toFixed(2);
         const w = (cell + 0.35).toFixed(2);
@@ -196,7 +194,7 @@ export async function printProductQrLabels(
     </html>
   `;
 
-  await Print.printAsync({ html });
+  await printHtml(html);
 }
 
 /**
@@ -387,6 +385,10 @@ export async function exportMonthlyReportPdf(
     </html>
   `;
 
+  if (Platform.OS === 'web') {
+    await printHtml(html); // Safari's print sheet offers "Save to Files" as PDF
+    return;
+  }
   const { uri } = await Print.printToFileAsync({ html });
   const canShare = await Sharing.isAvailableAsync();
   if (canShare) {
@@ -396,7 +398,7 @@ export async function exportMonthlyReportPdf(
       UTI: 'com.adobe.pdf',
     });
   } else {
-    await Print.printAsync({ html });
+    await printHtml(html);
   }
 }
 
@@ -405,7 +407,7 @@ export async function exportMonthlyReportPdf(
  */
 export async function exportMonthlyReportExcelCsv(summary: MonthlySummary): Promise<void> {
   const lines: string[] = [];
-  lines.push(`"Stock & QR Inventory - Monthly Report (${summary.monthLabel})"`);
+  lines.push(csvCell(`Stock & QR Inventory - Monthly Report (${summary.monthLabel})`));
   lines.push(`"Monthly Revenue","£${summary.totalRevenue.toFixed(2)}"`);
   lines.push(`"Cost of Goods Sold","£${summary.totalCostOfGoods.toFixed(2)}"`);
   lines.push(`"Monthly Gross Profit","£${summary.grossProfit.toFixed(2)}"`);
@@ -418,42 +420,84 @@ export async function exportMonthlyReportExcelCsv(summary: MonthlySummary): Prom
 
   for (const tx of summary.salesTransactions) {
     const dt = new Date(tx.timestamp);
-    const datePart = dt.toISOString().slice(0, 10);
+    const datePart = `${localMonthKey(dt)}-${String(dt.getDate()).padStart(2, '0')}`;
     const timePart = dt.toTimeString().slice(0, 8);
     const rev = tx.quantity * tx.unitSellingPrice;
     const cost = tx.quantity * tx.unitBuyingPrice;
-    const profit = rev - cost;
     lines.push(
       [
-        `"${datePart}"`,
-        `"${timePart}"`,
-        `"${tx.productName.replace(/"/g, '""')}"`,
+        csvCell(datePart),
+        csvCell(timePart),
+        csvCell(tx.productName),
         tx.quantity,
         tx.unitBuyingPrice.toFixed(2),
         tx.unitSellingPrice.toFixed(2),
         rev.toFixed(2),
         cost.toFixed(2),
-        profit.toFixed(2),
-        `"${tx.performedByRole}"`,
+        (rev - cost).toFixed(2),
+        csvCell(tx.performedByRole),
       ].join(',')
     );
   }
 
-  const csvContent = '\uFEFF' + lines.join('\r\n');
-  const dir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
-  const fileUri = `${dir}Inventory_Report_${summary.monthKey}.csv`;
+  const csvContent = '﻿' + lines.join('\r\n');
+  const fileName = `Inventory_Report_${summary.monthKey}.csv`;
 
+  if (Platform.OS === 'web') {
+    downloadOnWeb(csvContent, fileName, 'text/csv;charset=utf-8');
+    return;
+  }
+
+  const dir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
+  const fileUri = `${dir}${fileName}`;
   await FileSystem.writeAsStringAsync(fileUri, csvContent, {
     encoding: FileSystem.EncodingType.UTF8,
   });
 
-  const canShare = await Sharing.isAvailableAsync();
-  if (canShare) {
+  if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(fileUri, {
       mimeType: 'text/csv',
-      dialogTitle: `Export ${summary.monthLabel} Excel (CSV) Report`,
+      dialogTitle: `Export ${summary.monthLabel} report (CSV)`,
+      UTI: 'public.comma-separated-values-text',
     });
+  } else {
+    throw new Error('Sharing is not available on this device.');
   }
+}
+
+/** Opens the system print dialog. On the web (iPhone home-screen app) it prints from a hidden frame. */
+async function printHtml(html: string): Promise<void> {
+  if (Platform.OS !== 'web') {
+    await Print.printAsync({ html });
+    return;
+  }
+  const doc = (globalThis as any).document;
+  if (!doc) return;
+  const frame = doc.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  doc.body.appendChild(frame);
+  const win = frame.contentWindow;
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  await new Promise((r) => setTimeout(r, 300));
+  win.focus();
+  win.print();
+  setTimeout(() => frame.remove(), 60_000);
+}
+
+function downloadOnWeb(content: string, fileName: string, mime: string) {
+  const doc = (globalThis as any).document;
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = doc.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  doc.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 /**
@@ -516,7 +560,7 @@ export async function printReorderListPdf(lowStockProducts: Product[]): Promise<
     </html>
   `;
 
-  await Print.printAsync({ html });
+  await printHtml(html);
 }
 
 function escapeHtml(str: string): string {

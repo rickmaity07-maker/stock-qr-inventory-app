@@ -1,871 +1,380 @@
-import React, { useState, useMemo, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  Modal,
-  Alert,
-} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useInventory } from '../../src/context/InventoryContext';
 import { Product } from '../../src/types/inventory';
 import { printProductQrLabels } from '../../src/utils/printAndExport';
 import { DesignerQrCode } from '../../src/components/DesignerQrCode';
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Field,
+  LargeTitle,
+  Notice,
+  Row,
+  Screen,
+  SearchField,
+  Section,
+  Sheet,
+  Tap,
+} from '../../src/ui/components';
+import { SyncIndicator } from '../../src/ui/nav';
+import { confirmAction, showAlert } from '../../src/ui/dialog';
+import { formatMoney, radius, space, tabular, type, usePalette } from '../../src/ui/theme';
+import { isValidIsoDate, parseNonNegativeNumber, parseWholeNumber } from '../../src/logic/inventoryLogic';
+
+interface Draft {
+  name: string;
+  category: string;
+  buyingPrice: string;
+  sellingPrice: string;
+  quantity: string;
+  minStockLevel: string;
+  factoryBarcode: string;
+  expiryDate: string;
+}
+
+const emptyDraft: Draft = {
+  name: '',
+  category: '',
+  buyingPrice: '',
+  sellingPrice: '',
+  quantity: '0',
+  minStockLevel: '5',
+  factoryBarcode: '',
+  expiryDate: '',
+};
+
+function validate(d: Draft) {
+  const errors: Partial<Record<keyof Draft, string>> = {};
+  if (!d.name.trim()) errors.name = 'Enter a product name';
+  if (parseNonNegativeNumber(d.buyingPrice || '0') === null) errors.buyingPrice = 'Enter a price like 12.50';
+  if (parseNonNegativeNumber(d.sellingPrice) === null) errors.sellingPrice = 'Enter a price like 19.99';
+  if (parseWholeNumber(d.quantity) === null) errors.quantity = 'Whole number, 0 or more';
+  if (parseWholeNumber(d.minStockLevel) === null) errors.minStockLevel = 'Whole number, 0 or more';
+  if (d.expiryDate.trim() && !isValidIsoDate(d.expiryDate.trim())) errors.expiryDate = 'Use YYYY-MM-DD';
+  return errors;
+}
 
 export default function ProductsScreen() {
-  const { products, role, isClientDemoLocked, addProduct, updateProduct, deleteProduct } =
+  const c = usePalette();
+  const { products, role, isClientDemoLocked, isSampleData, addProduct, updateProduct, deleteProduct, getProduct } =
     useInventory();
+  const isOwner = role === 'OWNER' && !isClientDemoLocked;
 
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('All');
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ id: string | null } | null>(null);
+  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [showErrors, setShowErrors] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [copies, setCopies] = useState('24');
 
-  // Add / Edit Product Modal State
-  const [editorVisible, setEditorVisible] = useState<boolean>(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [name, setName] = useState<string>('');
-  const [category, setCategory] = useState<string>('General');
-  const [buyingPrice, setBuyingPrice] = useState<string>('');
-  const [sellingPrice, setSellingPrice] = useState<string>('');
-  const [quantity, setQuantity] = useState<string>('');
-  const [minStockLevel, setMinStockLevel] = useState<string>('5');
-  const [factoryBarcode, setFactoryBarcode] = useState<string>('');
-  const [expiryDate, setExpiryDate] = useState<string>('');
+  const detail = detailId ? getProduct(detailId) ?? null : null;
 
-  // QR Label Print Modal State
-  const [qrModalProduct, setQrModalProduct] = useState<Product | null>(null);
-  const [sheetCopiesCount, setSheetCopiesCount] = useState<string>('24');
-  const qrSvgRef = useRef<any>(null);
+  const categories = useMemo(
+    () => ['All', ...Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort()],
+    [products]
+  );
 
-  const categories = useMemo(() => {
-    const set = new Set<string>(['All']);
-    for (const p of products) {
-      if (p.category) set.add(p.category);
-    }
-    return Array.from(set);
-  }, [products]);
-
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
-      const q = searchQuery.trim().toLowerCase();
-      if (!q) return matchesCategory;
-      return (
-        matchesCategory &&
-        (p.name.toLowerCase().includes(q) ||
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return products
+      .filter((p) => category === 'All' || p.category === category)
+      .filter(
+        (p) =>
+          !q ||
+          p.name.toLowerCase().includes(q) ||
           p.qrCode.toLowerCase().includes(q) ||
-          (p.factoryBarcode && p.factoryBarcode.toLowerCase().includes(q)))
-      );
+          (p.factoryBarcode || '').toLowerCase().includes(q)
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [products, query, category]);
+
+  const locked = (what: string) => {
+    showAlert('Locked in preview mode', `${what} is available in the full version.`);
+  };
+
+  const openAdd = () => {
+    if (isClientDemoLocked) return locked('Adding products');
+    setDraft({ ...emptyDraft, category: category !== 'All' ? category : '' });
+    setShowErrors(false);
+    setEditing({ id: null });
+  };
+
+  const openEdit = (p: Product) => {
+    if (isClientDemoLocked) return locked('Editing products');
+    setDraft({
+      name: p.name,
+      category: p.category,
+      buyingPrice: p.buyingPrice.toFixed(2),
+      sellingPrice: p.sellingPrice.toFixed(2),
+      quantity: String(Math.max(0, p.quantity)),
+      minStockLevel: String(p.minStockLevel),
+      factoryBarcode: p.factoryBarcode || '',
+      expiryDate: p.expiryDate || '',
     });
-  }, [products, searchQuery, selectedCategory]);
-
-  const showClientLockAlert = (featureName: string) => {
-    Alert.alert(
-      '🔒 Locked in Client Preview',
-      `${featureName} is disabled in this Client Demo build. Contact the developer or enter your License Key in Settings to unlock full Mobile Store access.`
-    );
+    setShowErrors(false);
+    setDetailId(null);
+    setEditing({ id: p.id });
   };
 
-  const openAddModal = () => {
-    if (isClientDemoLocked) {
-      showClientLockAlert('Adding new mobile store inventory');
+  const errors = validate(draft);
+  const hasErrors = Object.keys(errors).length > 0;
+  const err = (k: keyof Draft) => (showErrors ? errors[k] : undefined);
+  const set = (k: keyof Draft) => (v: string) => setDraft((d) => ({ ...d, [k]: v }));
+
+  const save = async () => {
+    if (!editing || saving) return;
+    if (hasErrors) {
+      setShowErrors(true);
       return;
     }
-    setEditingProduct(null);
-    setName('');
-    setCategory('Smartphones');
-    setBuyingPrice('');
-    setSellingPrice('');
-    setQuantity('10');
-    setMinStockLevel('5');
-    setFactoryBarcode('');
-    setExpiryDate('');
-    setEditorVisible(true);
-  };
-
-  const openEditModal = (product: Product) => {
-    if (isClientDemoLocked) {
-      showClientLockAlert('Editing product prices & stock');
-      return;
-    }
-    setEditingProduct(product);
-    setName(product.name);
-    setCategory(product.category);
-    setBuyingPrice(String(product.buyingPrice));
-    setSellingPrice(String(product.sellingPrice));
-    setQuantity(String(product.quantity));
-    setMinStockLevel(String(product.minStockLevel));
-    setFactoryBarcode(product.factoryBarcode || '');
-    setExpiryDate(product.expiryDate || '');
-    setEditorVisible(true);
-  };
-
-  const handleSaveProduct = async () => {
-    if (!name.trim()) {
-      Alert.alert('Missing Name', 'Please enter a product name.');
-      return;
-    }
-    const buy = parseFloat(buyingPrice) || 0;
-    const sell = parseFloat(sellingPrice) || 0;
-    const qty = parseInt(quantity, 10) || 0;
-    const min = parseInt(minStockLevel, 10) || 5;
-
-    if (editingProduct) {
-      await updateProduct(editingProduct.id, {
-        name: name.trim(),
-        category: category.trim() || 'General',
-        buyingPrice: buy,
-        sellingPrice: sell,
-        quantity: qty,
-        minStockLevel: min,
-        factoryBarcode: factoryBarcode.trim() || undefined,
-        expiryDate: expiryDate.trim() || undefined,
-      });
-      setEditorVisible(false);
-    } else {
-      const created = await addProduct({
-        name: name.trim(),
-        category: category.trim() || 'General',
-        buyingPrice: buy,
-        sellingPrice: sell,
-        quantity: qty,
-        minStockLevel: min,
-        factoryBarcode: factoryBarcode.trim() || undefined,
-        expiryDate: expiryDate.trim() || undefined,
-      });
-      setEditorVisible(false);
-      // Immediately show generated QR sticker modal for the new product
-      setQrModalProduct(created);
+    const values = {
+      name: draft.name.trim(),
+      category: draft.category.trim() || 'General',
+      buyingPrice: parseNonNegativeNumber(draft.buyingPrice || '0') ?? 0,
+      sellingPrice: parseNonNegativeNumber(draft.sellingPrice) ?? 0,
+      quantity: parseWholeNumber(draft.quantity) ?? 0,
+      minStockLevel: parseWholeNumber(draft.minStockLevel) ?? 0,
+      factoryBarcode: draft.factoryBarcode.trim(),
+      expiryDate: draft.expiryDate.trim(),
+    };
+    setSaving(true);
+    try {
+      if (editing.id) {
+        await updateProduct(editing.id, values);
+        setEditing(null);
+        setDetailId(editing.id);
+      } else {
+        const created = await addProduct({
+          ...values,
+          factoryBarcode: values.factoryBarcode || undefined,
+          expiryDate: values.expiryDate || undefined,
+        });
+        setEditing(null);
+        setDetailId(created.id);
+      }
+    } catch (e) {
+      showAlert('Could not save', e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleDeleteProduct = (product: Product) => {
-    if (isClientDemoLocked) {
-      showClientLockAlert('Deleting catalogue products');
-      return;
-    }
-    Alert.alert(
-      'Delete Product',
-      `Remove "${product.name}" from the catalogue? Past monthly sales history will still remain intact.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deleteProduct(product.id),
-        },
-      ]
-    );
+  const remove = async (p: Product) => {
+    if (isClientDemoLocked) return locked('Deleting products');
+    const ok = await confirmAction({
+      title: `Delete ${p.name}?`,
+      message: 'It disappears from the catalogue and scanner. Past sales stay in your reports.',
+      confirmText: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
+    await deleteProduct(p.id);
+    setDetailId(null);
   };
 
-  const triggerLabelPrint = (product: Product, mode: 'SINGLE' | 'A4_SHEET') => {
-    if (isClientDemoLocked) {
-      showClientLockAlert('Printing QR thermal labels & A4 sticker sheets');
-      return;
-    }
-    const copies = parseInt(sheetCopiesCount, 10) || 24;
-    if (qrSvgRef.current && typeof qrSvgRef.current.toDataURL === 'function') {
-      qrSvgRef.current.toDataURL((base64Data: string) => {
-        printProductQrLabels(product, mode, copies, base64Data);
-      });
-    } else {
-      printProductQrLabels(product, mode, copies);
+  const print = async (p: Product, mode: 'SINGLE' | 'A4_SHEET') => {
+    if (isClientDemoLocked) return locked('Printing labels');
+    try {
+      await printProductQrLabels(p, mode, Math.min(96, Math.max(1, parseInt(copies, 10) || 24)));
+    } catch (e) {
+      showAlert('Could not print', e instanceof Error ? e.message : String(e));
     }
   };
+
+  const existingCategories = categories.filter((x) => x !== 'All');
 
   return (
-    <View style={styles.container}>
-      {/* SEARCH & ADD PRODUCT BAR */}
-      <View style={styles.topSearchRow}>
-        <View style={styles.searchInputBox}>
-          <Ionicons name="search" size={18} color="#8E8E93" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search name, QR code, or barcode..."
-            placeholderTextColor="#94A3B8"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {Boolean(searchQuery) && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color="#94A3B8" />
-            </TouchableOpacity>
-          )}
-        </View>
-        {role === 'OWNER' && (
-          <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
-            <Ionicons name="add" size={20} color="#FFFFFF" />
-            <Text style={styles.addBtnText}>Add Product</Text>
-          </TouchableOpacity>
-        )}
+    <Screen>
+      <LargeTitle
+        title="Products"
+        subtitle={`${products.length} ${products.length === 1 ? 'product' : 'products'}`}
+        accessory={
+          isOwner ? (
+            <Tap
+              onPress={openAdd}
+              accessibilityRole="button"
+              accessibilityLabel="Add product"
+              hitSlop={8}
+              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.tintSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}
+            >
+              <Ionicons name="add" size={24} color={c.tint} />
+            </Tap>
+          ) : (
+            <SyncIndicator />
+          )
+        }
+      />
+
+      {isSampleData && isOwner ? (
+        <Notice
+          tone="indigo"
+          icon="sparkles-outline"
+          title="You're looking at sample products"
+          message="Explore freely. When you're ready, start your own catalogue in Settings → Data."
+        />
+      ) : null}
+
+      <View style={{ marginTop: space.sm }}>
+        <SearchField value={query} onChangeText={setQuery} placeholder="Search name, QR or barcode" />
       </View>
 
-      {/* CATEGORY CHIPS */}
-      <View style={styles.categoryScrollWrap}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+      {categories.length > 2 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: space.lg, gap: space.sm, paddingTop: space.md }}
+        >
           {categories.map((cat) => {
-            const active = selectedCategory === cat;
+            const on = cat === category;
             return (
-              <TouchableOpacity
+              <Tap
                 key={cat}
-                style={[styles.categoryChip, active && styles.categoryChipActive]}
-                onPress={() => setSelectedCategory(cat)}
+                onPress={() => setCategory(cat)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                style={{
+                  paddingHorizontal: 14,
+                  height: 32,
+                  justifyContent: 'center',
+                  borderRadius: 16,
+                  backgroundColor: on ? c.label : c.surface,
+                }}
               >
-                <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
-                  {cat}
-                </Text>
-              </TouchableOpacity>
+                <Text style={[type.subhead, { color: on ? c.background : c.label, fontWeight: on ? '600' : '400' }]}>{cat}</Text>
+              </Tap>
             );
           })}
         </ScrollView>
-      </View>
+      ) : null}
 
-      {/* PRODUCT CATALOGUE LIST */}
-      <ScrollView contentContainerStyle={styles.listContent}>
-        {filteredProducts.map((product) => {
-          const isLowStock = product.quantity <= product.minStockLevel;
-          const unitProfit = product.sellingPrice - product.buyingPrice;
-          return (
-            <View key={product.id} style={styles.productCard}>
-              <View style={styles.cardTopRow}>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.categoryTagRow}>
-                    <Text style={styles.categoryTag}>{product.category}</Text>
-                    {product.expiryDate && (
-                      <Text style={styles.expiryTag}>Exp: {product.expiryDate}</Text>
-                    )}
-                  </View>
-                  <Text style={styles.productTitle}>{product.name}</Text>
-                  <Text style={styles.qrSubtitle}>
-                    QR: {product.qrCode}
-                    {product.factoryBarcode ? ` • Barcode: ${product.factoryBarcode}` : ''}
-                  </Text>
-                </View>
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={products.length ? 'search' : 'pricetags-outline'}
+          title={products.length ? 'No matches' : 'No products yet'}
+          message={products.length ? 'Try another search or category.' : 'Add your first product to get its QR sticker.'}
+          action={!products.length && isOwner ? { label: 'Add product', onPress: openAdd } : undefined}
+        />
+      ) : (
+        <Section>
+          {filtered.map((p) => (
+            <Row
+              key={p.id}
+              title={p.name}
+              subtitle={`${p.category} · ${formatMoney(p.sellingPrice)}`}
+              onPress={() => setDetailId(p.id)}
+              chevron
+              left={<DesignerQrCode value={p.qrCode} size={40} />}
+              right={
+                <Badge
+                  text={p.quantity <= 0 ? 'Out' : `${p.quantity}`}
+                  tone={p.quantity <= 0 ? 'red' : p.quantity <= p.minStockLevel ? 'orange' : 'gray'}
+                />
+              }
+            />
+          ))}
+        </Section>
+      )}
 
-                <TouchableOpacity
-                  style={styles.qrPreviewBox}
-                  onPress={() => setQrModalProduct(product)}
-                >
-                  <DesignerQrCode value={product.qrCode} size={52} />
-                  <Text style={styles.qrPrintHint}>Designer QR</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.metricsRow}>
-                <View style={styles.metricBlock}>
-                  <Text style={styles.metricLabel}>Selling Price</Text>
-                  <Text style={styles.metricValue}>£{product.sellingPrice.toFixed(2)}</Text>
-                </View>
-
-                {role === 'OWNER' && (
-                  <>
-                    <View style={styles.metricBlock}>
-                      <Text style={styles.metricLabel}>Buying Price</Text>
-                      <Text style={styles.metricValue}>£{product.buyingPrice.toFixed(2)}</Text>
-                    </View>
-                    <View style={styles.metricBlock}>
-                      <Text style={styles.metricLabel}>Unit Profit</Text>
-                      <Text style={[styles.metricValue, { color: '#34C759' }]}>
-                        +£{unitProfit.toFixed(2)}
-                      </Text>
-                    </View>
-                  </>
-                )}
-
-                <View style={styles.metricBlockRight}>
-                  <Text style={styles.metricLabel}>In Stock</Text>
-                  <Text
-                    style={[
-                      styles.metricValue,
-                      { color: isLowStock ? '#FF3B30' : '#000000' },
-                    ]}
-                  >
-                    {product.quantity} units
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.cardActionsRow}>
-                <TouchableOpacity
-                  style={styles.actionBtnPrimary}
-                  onPress={() => setQrModalProduct(product)}
-                >
-                  <Ionicons name="print-outline" size={16} color="#007AFF" />
-                  <Text style={styles.actionBtnPrimaryText}>QR & Label Print</Text>
-                </TouchableOpacity>
-
-                {role === 'OWNER' && (
-                  <>
-                    <TouchableOpacity
-                      style={styles.actionBtnSecondary}
-                      onPress={() => openEditModal(product)}
-                    >
-                      <Ionicons name="create-outline" size={16} color="#3A3A3C" />
-                      <Text style={styles.actionBtnSecondaryText}>Edit</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.actionBtnDanger}
-                      onPress={() => handleDeleteProduct(product)}
-                    >
-                      <Ionicons name="trash-outline" size={16} color="#FF3B30" />
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            </View>
-          );
-        })}
-      </ScrollView>
-
-      {/* ADD / EDIT PRODUCT MODAL */}
-      <Modal
-        visible={editorVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setEditorVisible(false)}
+      {/* Product detail */}
+      <Sheet
+        visible={Boolean(detail)}
+        title="Product"
+        onClose={() => setDetailId(null)}
+        closeLabel="Done"
+        action={isOwner && detail ? { label: 'Edit', onPress: () => openEdit(detail) } : undefined}
+        tall
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalHeaderTitle}>
-                {editingProduct ? 'Edit Product' : 'Add New Product'}
-              </Text>
-              <TouchableOpacity onPress={() => setEditorVisible(false)}>
-                <Ionicons name="close" size={24} color="#1C1C1E" />
-              </TouchableOpacity>
+        {detail ? (
+          <>
+            <View style={{ alignItems: 'center', paddingTop: space.md, gap: 6, paddingHorizontal: space.lg }}>
+              <View style={{ backgroundColor: '#FFFFFF', padding: 10, borderRadius: radius.xl }}>
+                <DesignerQrCode value={detail.qrCode} size={170} />
+              </View>
+              <Text style={[type.title3, { color: c.label, textAlign: 'center', marginTop: space.sm }]}>{detail.name}</Text>
+              <Text style={[type.footnote, tabular, { color: c.secondaryLabel }]}>{detail.qrCode}</Text>
             </View>
-
-            <ScrollView style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Product Name *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={name}
-                onChangeText={setName}
-                placeholder="e.g. iPhone 16 Pro Max 256GB (Natural Titanium)"
+            <Section>
+              <Row title="Category" value={detail.category} />
+              <Row title="Selling price" value={formatMoney(detail.sellingPrice)} />
+              {role === 'OWNER' ? <Row title="Buying price" value={formatMoney(detail.buyingPrice)} /> : null}
+              {role === 'OWNER' && detail.sellingPrice > 0 ? (
+                <Row
+                  title="Margin"
+                  value={`${(((detail.sellingPrice - detail.buyingPrice) / detail.sellingPrice) * 100).toFixed(1)}%`}
+                />
+              ) : null}
+              <Row title="In stock" value={String(detail.quantity)} />
+              <Row title="Low-stock alert at" value={String(detail.minStockLevel)} />
+              <Row title="Factory barcode" value={detail.factoryBarcode || 'None'} />
+              <Row title="Expiry" value={detail.expiryDate || 'None'} />
+            </Section>
+            <Section
+              header="Print QR stickers"
+              footer="One code per product — stick the same code on every unit. Works with thermal label printers and A4 sticker sheets."
+            >
+              <Row title="Single label" left={<Ionicons name="pricetag-outline" size={20} color={c.tint} />} tinted onPress={() => print(detail, 'SINGLE')} />
+              <Field label="Copies on the A4 sheet" value={copies} onChangeText={(t) => setCopies(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" />
+              <Row
+                title={`Print A4 sheet (${Math.min(96, Math.max(1, parseInt(copies, 10) || 24))})`}
+                left={<Ionicons name="grid-outline" size={20} color={c.tint} />}
+                tinted
+                onPress={() => print(detail, 'A4_SHEET')}
               />
+            </Section>
+            {isOwner ? (
+              <Section>
+                <Row title="Delete product" destructive onPress={() => remove(detail)} />
+              </Section>
+            ) : null}
+          </>
+        ) : null}
+      </Sheet>
 
-              <Text style={styles.inputLabel}>Category</Text>
-              <TextInput
-                style={styles.textInput}
-                value={category}
-                onChangeText={setCategory}
-                placeholder="e.g. Smartphones, Chargers & Cables, Cases"
-              />
-
-              <View style={styles.twoColRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Buying Price (£) *</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    keyboardType="decimal-pad"
-                    value={buyingPrice}
-                    onChangeText={setBuyingPrice}
-                    placeholder="0.00"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Selling Price (£) *</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    keyboardType="decimal-pad"
-                    value={sellingPrice}
-                    onChangeText={setSellingPrice}
-                    placeholder="0.00"
-                  />
-                </View>
-              </View>
-
-              <View style={styles.twoColRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Starting Stock Quantity</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    keyboardType="number-pad"
-                    value={quantity}
-                    onChangeText={setQuantity}
-                    placeholder="10"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Low-Stock Alert Level</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    keyboardType="number-pad"
-                    value={minStockLevel}
-                    onChangeText={setMinStockLevel}
-                    placeholder="5"
-                  />
-                </View>
-              </View>
-
-              <Text style={styles.inputLabel}>
-                Existing Factory Barcode (Optional — skip if printing QR sticker)
-              </Text>
-              <TextInput
-                style={styles.textInput}
-                value={factoryBarcode}
-                onChangeText={setFactoryBarcode}
-                placeholder="e.g. 5012345678900"
-              />
-
-              <Text style={styles.inputLabel}>
-                Warranty / Batch Expiry Date (Optional, YYYY-MM-DD)
-              </Text>
-              <TextInput
-                style={styles.textInput}
-                value={expiryDate}
-                onChangeText={setExpiryDate}
-                placeholder="e.g. 2027-10-15"
-              />
-
-              <TouchableOpacity style={styles.saveProductBtn} onPress={handleSaveProduct}>
-                <Ionicons name="qr-code-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.saveProductBtnText}>
-                  {editingProduct ? 'Save Changes' : 'Create Product & Generate QR Code'}
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* QR STICKER & PRINTING MODAL */}
-      <Modal
-        visible={Boolean(qrModalProduct)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setQrModalProduct(null)}
+      {/* Add / edit */}
+      <Sheet
+        visible={Boolean(editing)}
+        title={editing?.id ? 'Edit product' : 'New product'}
+        onClose={() => setEditing(null)}
+        action={{ label: editing?.id ? 'Save' : 'Add', onPress: save, loading: saving }}
+        tall
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            {qrModalProduct && (
-              <>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalHeaderTitle}>Product QR Label & Printing</Text>
-                  <TouchableOpacity onPress={() => setQrModalProduct(null)}>
-                    <Ionicons name="close" size={24} color="#1C1C1E" />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.qrModalBody}>
-                  <View style={styles.stickerPreviewCard}>
-                    <Text style={styles.stickerPreviewName}>{qrModalProduct.name}</Text>
-                    <View style={{ marginVertical: 12 }}>
-                      <DesignerQrCode
-                        value={qrModalProduct.qrCode}
-                        size={165}
-                      />
-                    </View>
-                    <Text style={styles.stickerPreviewCode}>{qrModalProduct.qrCode}</Text>
-                    <Text style={styles.stickerPreviewPrice}>
-                      £{qrModalProduct.sellingPrice.toFixed(2)}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.stickerHelpText}>
-                    One QR code per product — print and stick it on each unit. Works with Bluetooth thermal label printers or standard A4 sticker sheets.
-                  </Text>
-
-                  <TouchableOpacity
-                    style={styles.printSingleBtn}
-                    onPress={() => triggerLabelPrint(qrModalProduct, 'SINGLE')}
-                  >
-                    <Ionicons name="pricetag-outline" size={18} color="#FFFFFF" />
-                    <Text style={styles.printSingleBtnText}>
-                      Print Single Sticker (Bluetooth Label Printer)
-                    </Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.a4PrintBox}>
-                    <View style={styles.a4CountRow}>
-                      <Text style={styles.a4CountLabel}>Stickers on A4 Sheet:</Text>
-                      <TextInput
-                        style={styles.a4CountInput}
-                        keyboardType="number-pad"
-                        value={sheetCopiesCount}
-                        onChangeText={setSheetCopiesCount}
-                      />
-                    </View>
-                    <TouchableOpacity
-                      style={styles.printSheetBtn}
-                      onPress={() => triggerLabelPrint(qrModalProduct, 'A4_SHEET')}
-                    >
-                      <Ionicons name="grid-outline" size={18} color="#007AFF" />
-                      <Text style={styles.printSheetBtnText}>
-                        Print Full A4 Sheet ({parseInt(sheetCopiesCount, 10) || 24} Copies)
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </>
-            )}
-          </View>
+        <Section>
+          <Field label="Name" value={draft.name} onChangeText={set('name')} placeholder="e.g. iPhone 16 Pro 256GB" error={err('name')} autoFocus={!editing?.id} />
+          <Field label="Category" value={draft.category} onChangeText={set('category')} placeholder="General" />
+        </Section>
+        {existingCategories.length ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: space.xl, gap: 6, paddingTop: space.sm }}>
+            {existingCategories.map((cat) => (
+              <Tap key={cat} onPress={() => set('category')(cat)} style={{ paddingHorizontal: 10, height: 28, justifyContent: 'center', borderRadius: 14, backgroundColor: c.fill }}>
+                <Text style={[type.footnote, { color: c.label }]}>{cat}</Text>
+              </Tap>
+            ))}
+          </ScrollView>
+        ) : null}
+        <Section header="Prices">
+          <Field label="Selling price" value={draft.sellingPrice} onChangeText={set('sellingPrice')} keyboardType="decimal-pad" placeholder="0.00" suffix="£" error={err('sellingPrice')} />
+          <Field label="Buying price" value={draft.buyingPrice} onChangeText={set('buyingPrice')} keyboardType="decimal-pad" placeholder="0.00" suffix="£" error={err('buyingPrice')} />
+        </Section>
+        <Section
+          header="Stock"
+          footer={editing?.id ? 'Changing the count records a stock correction so every paired phone agrees.' : undefined}
+        >
+          <Field label={editing?.id ? 'Units in stock (counted)' : 'Starting stock'} value={draft.quantity} onChangeText={set('quantity')} keyboardType="number-pad" error={err('quantity')} />
+          <Field label="Low-stock alert at" value={draft.minStockLevel} onChangeText={set('minStockLevel')} keyboardType="number-pad" error={err('minStockLevel')} />
+        </Section>
+        <Section header="Optional" footer="Link the maker's barcode to scan the box directly without a sticker.">
+          <Field label="Factory barcode" value={draft.factoryBarcode} onChangeText={set('factoryBarcode')} autoCapitalize="characters" autoCorrect={false} placeholder="e.g. 5012345678900" />
+          <Field label="Expiry or warranty date" value={draft.expiryDate} onChangeText={set('expiryDate')} placeholder="YYYY-MM-DD" autoCapitalize="none" error={err('expiryDate')} />
+        </Section>
+        <View style={{ padding: space.lg }}>
+          <Button title={editing?.id ? 'Save changes' : 'Add product and create QR'} onPress={save} loading={saving} />
         </View>
-      </Modal>
-    </View>
+      </Sheet>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  topSearchRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 10,
-    gap: 10,
-    backgroundColor: '#FFFFFF',
-  },
-  searchInputBox: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(118, 118, 128, 0.12)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 40,
-    gap: 6,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: '#000000',
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    gap: 4,
-  },
-  addBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 13,
-    letterSpacing: -0.1,
-  },
-  categoryScrollWrap: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C6C6C8',
-  },
-  categoryRow: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  categoryChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#F2F2F7',
-  },
-  categoryChipActive: {
-    backgroundColor: '#000000',
-  },
-  categoryChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#3A3A3C',
-  },
-  categoryChipTextActive: {
-    color: '#FFFFFF',
-  },
-  listContent: {
-    padding: 16,
-    gap: 12,
-    paddingBottom: 32,
-  },
-  productCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  categoryTagRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 5,
-  },
-  categoryTag: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#007AFF',
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  expiryTag: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#C93400',
-    backgroundColor: 'rgba(255, 149, 0, 0.14)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  productTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#000000',
-    letterSpacing: -0.3,
-  },
-  qrSubtitle: {
-    fontSize: 11.5,
-    color: '#8E8E93',
-    marginTop: 3,
-  },
-  qrPreviewBox: {
-    alignItems: 'center',
-    padding: 7,
-    borderRadius: 12,
-    backgroundColor: '#F2F2F7',
-  },
-  qrPrintHint: {
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: '#007AFF',
-    marginTop: 4,
-  },
-  metricsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#C6C6C8',
-  },
-  metricBlock: {
-    alignItems: 'flex-start',
-  },
-  metricBlockRight: {
-    alignItems: 'flex-end',
-  },
-  metricLabel: {
-    fontSize: 10.5,
-    color: '#8E8E93',
-    fontWeight: '500',
-  },
-  metricValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#000000',
-    marginTop: 2,
-    letterSpacing: -0.2,
-  },
-  cardActionsRow: {
-    flexDirection: 'row',
-    marginTop: 14,
-    gap: 8,
-  },
-  actionBtnPrimary: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    paddingVertical: 9,
-    borderRadius: 10,
-    gap: 6,
-  },
-  actionBtnPrimaryText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  actionBtnSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F2F2F7',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 10,
-    gap: 4,
-  },
-  actionBtnSecondaryText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#3A3A3C',
-  },
-  actionBtnDanger: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 59, 48, 0.12)',
-    paddingHorizontal: 11,
-    borderRadius: 10,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '88%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 18,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C6C6C8',
-  },
-  modalHeaderTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#000000',
-    letterSpacing: -0.3,
-  },
-  modalBody: {
-    padding: 18,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#3A3A3C',
-    marginBottom: 6,
-    marginTop: 10,
-  },
-  textInput: {
-    height: 44,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    color: '#000000',
-  },
-  twoColRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  saveProductBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#007AFF',
-    paddingVertical: 15,
-    borderRadius: 14,
-    marginTop: 20,
-    marginBottom: 24,
-    gap: 8,
-  },
-  saveProductBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  qrModalBody: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  stickerPreviewCard: {
-    width: 246,
-    alignItems: 'center',
-    padding: 18,
-    borderRadius: 20,
-    backgroundColor: '#F2F2F7',
-  },
-  stickerPreviewName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#000000',
-    textAlign: 'center',
-    letterSpacing: -0.2,
-  },
-  stickerPreviewCode: {
-    fontFamily: 'monospace',
-    fontSize: 12,
-    color: '#636366',
-  },
-  stickerPreviewPrice: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#007AFF',
-    marginTop: 4,
-    letterSpacing: -0.3,
-  },
-  stickerHelpText: {
-    fontSize: 12,
-    color: '#8E8E93',
-    textAlign: 'center',
-    marginVertical: 14,
-    lineHeight: 18,
-  },
-  printSingleBtn: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
-    marginBottom: 12,
-  },
-  printSingleBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  a4PrintBox: {
-    width: '100%',
-    backgroundColor: '#F2F2F7',
-    padding: 14,
-    borderRadius: 16,
-    marginBottom: 10,
-  },
-  a4CountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  a4CountLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#3A3A3C',
-  },
-  a4CountInput: {
-    width: 70,
-    height: 36,
-    borderRadius: 10,
-    textAlign: 'center',
-    fontWeight: '700',
-    backgroundColor: '#FFFFFF',
-  },
-  printSheetBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 122, 255, 0.12)',
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 8,
-  },
-  printSheetBtnText: {
-    color: '#007AFF',
-    fontWeight: '600',
-    fontSize: 13.5,
-  },
-});

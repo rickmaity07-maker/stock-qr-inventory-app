@@ -1,45 +1,55 @@
-# Stock & QR Inventory App (Android • React Native / Expo)
+# Stock & QR Inventory (Android · iPhone home-screen app)
 
-Built from the **Stock & QR Inventory App — Feature Overview** specification.
+One codebase (React Native + Expo SDK 52) that runs as:
 
-## Quick Start on Your Android Phone
+- **Android app** — APK built by GitHub Actions on every push to `main`.
+- **iPhone / browser app** — installable from Safari ("Add to Home Screen"), works offline.
+  Live at `https://rickmaity07-maker.github.io/stock-qr-inventory-app/app/` once `docs/app` is pushed.
 
-1. Open PowerShell and navigate to the project folder:
-   ```powershell
-   cd C:\Users\zeeri\OneDrive\Desktop\stock-qr-inventory-app
-   npm install
-   npx expo start
-   ```
-2. Scan the terminal QR code using the **Expo Go** app on your Android phone (or press `a` to launch on an Android Emulator).
+## What it does
 
----
+- **Scan** — Sell / Restock / Info modes. Selling more than is in stock is blocked; double taps can't record a sale twice.
+- **Products** — catalogue with search, categories, unique QR code per product, single-label and A4-sheet printing, factory-barcode linking.
+- **Stock** — low-stock reorder list (printable supplier order), expiry tracker, stock value.
+- **Profit** (owner only) — monthly revenue, gross profit, margin, best/slowest sellers, PDF and CSV exports. Prices are stored with each sale, so past months never change.
+- **Settings** — owner PIN (stored hashed, 5 tries then a 30 s pause), staff mode, phone pairing, optional Supabase, updates, client preview lock.
+- Apple Human Interface styling with automatic dark mode.
 
-## Included Features
+## Sync between phones
 
-### 1. Products & QR Codes (`app/(tabs)/products.tsx`)
-- **Product Catalogue**: Add, edit, and remove products with name, category, buying price, selling price, stock quantity, minimum stock alert level, and optional expiry date.
-- **Automatic QR Generation**: Every new product automatically receives a unique QR code (`STK-...`) — one code per product so all units of the same item share a sticker.
-- **Label Printing (`src/utils/printAndExport.ts`)**: Print either a **Single Sticker** (formatted for Bluetooth thermal label printers) or a **Full A4 Sticker Sheet** of copies.
-- **Existing Factory Barcodes**: Link an existing factory barcode (`EAN-13`, `UPC`, `Code128`) directly to a product so no extra sticker is needed.
+Each store gets its own private, random sync code. In **Settings → Show pairing code**, then scan that QR from the other phone's **Scan** tab.
+Changes are shared within seconds through ntfy.sh; every phone keeps working offline and catches up later.
+Stock is calculated from the sales and restocks themselves, so two phones selling the same item at once both count.
 
-### 2. Mistake-Proof Scanning (`app/(tabs)/index.tsx`)
-- **3-Way Scanner Switch**: Clear color-coded **Sell (default)** / **Restock** / **Info** switch at the top of the scanner screen prevents restocks from being counted as sales.
-- **Sell Mode**: Scan → confirm quantity (defaults to `1`) → stock decreases and sale is recorded.
-- **Restock Mode**: Scan incoming goods → enter quantity, buying price, and optional expiry date → stock increases.
-- **Info Mode**: Scan to inspect a product's details, live stock level, QR code, and recent sales history without modifying anything.
+Optional: use your own Supabase project instead (Settings → Supabase). Run `supabase/schema.sql` in its SQL editor first — it is safe to re-run and upgrades older tables.
 
-### 3. Stock Management (`app/(tabs)/stock.tsx`)
-- **Live Stock Levels**: Always-current quantity for every product.
-- **Low-Stock Alerts**: Automatic tab badge and warning pills when any product hits or drops below its minimum stock level.
-- **Reorder List**: Automatic supplier reorder list of everything below its minimum threshold, with 1-tap **Print Supplier Order PDF** and **Quick Restock**.
-- **Expiry Tracker**: Tracks perishable goods and highlights items expiring soon or already expired.
+## Install on iPhone
 
-### 4. Revenue, Gross Profit & Accountant Exports (`app/(tabs)/dashboard.tsx`)
-- **Monthly Revenue & Gross Profit**: Selling price minus buying price for every item sold in the selected month.
-- **Accurate Historical Pricing**: `unitBuyingPrice` and `unitSellingPrice` are saved with every individual sale transaction, so changing a product's price today never alters past months' figures.
-- **Dashboard**: Month-by-month comparison chart, best & worst sellers, and live inventory valuation (at cost and retail).
-- **Report Export**: Download or share monthly reports as **PDF** or **Excel (CSV)**.
+1. Open the web app link in **Safari**.
+2. Tap **Share → Add to Home Screen**.
+3. Open it from the home screen, then pair it with the Android phone (Settings → Pair with another store, or scan the pairing QR).
 
-### 5. Users, Roles & Offline-First Live Sync (`app/(tabs)/settings.tsx`)
-- **Owner vs. Staff Roles**: Owner sees everything including profit (default PIN: `1234`). Staff mode hides buying prices, revenue, and profit.
-- **Works Offline + Live Sync**: Works 100% offline using `AsyncStorage` and syncs live across all Android devices via Supabase Realtime (`supabase/schema.sql`).
+The iPhone version scans QR stickers with the camera. Factory barcodes (EAN/UPC) can be picked from the list instead.
+
+## Develop
+
+```powershell
+npm install --legacy-peer-deps
+npx expo start            # press a for Android, w for web
+npm test                  # unit tests (Jest)
+npm run typecheck         # TypeScript
+npm run build:web         # builds the iPhone web app into docs/app
+```
+
+Code layout:
+
+- `src/logic/inventoryLogic.ts` — pure rules (stock maths, sync merging, code matching, reports). Fully unit-tested in `__tests__/`.
+- `src/context/InventoryContext.tsx` — app state, storage, sync.
+- `src/services/` — ntfy relay and Supabase.
+- `src/ui/` — iOS-style components and theme tokens.
+- `app/(tabs)/` — the five screens.
+
+## Releasing
+
+Pushing to `main` runs the tests and builds both APKs (full and client-demo) into the `v1.0.0` GitHub release.
+Bump `version` in `app.json` and in `docs/live-update.json` together so installed phones are offered the update.

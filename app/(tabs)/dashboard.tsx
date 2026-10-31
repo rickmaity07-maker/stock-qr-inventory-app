@@ -1,687 +1,239 @@
-import React, { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useInventory } from '../../src/context/InventoryContext';
+import { exportMonthlyReportExcelCsv, exportMonthlyReportPdf } from '../../src/utils/printAndExport';
 import {
-  exportMonthlyReportExcelCsv,
-  exportMonthlyReportPdf,
-} from '../../src/utils/printAndExport';
+  Button,
+  EmptyState,
+  Field,
+  LargeTitle,
+  Row,
+  Screen,
+  Section,
+  StatTile,
+  Tap,
+} from '../../src/ui/components';
+import { SyncIndicator } from '../../src/ui/nav';
+import { showAlert } from '../../src/ui/dialog';
+import { formatMoney, radius, space, tabular, type, usePalette } from '../../src/ui/theme';
+
+// Validated (dataviz validate_palette.js): CVD-safe pair, light and dark steps.
+const SERIES = {
+  light: { revenue: '#30B0C7', profit: '#5856D6' },
+  dark: { revenue: '#2A9DB2', profit: '#5E5CE6' },
+};
+
+function shortMoney(n: number) {
+  const abs = Math.abs(n);
+  const s = abs >= 1000 ? `£${(abs / 1000).toFixed(abs >= 10000 ? 0 : 1)}k` : `£${abs.toFixed(0)}`;
+  return n < 0 ? `−${s}` : s;
+}
 
 export default function DashboardScreen() {
-  const {
-    products,
-    role,
-    unlockOwnerRole,
-    availableMonths,
-    getMonthlySummary,
-  } = useInventory();
+  const c = usePalette();
+  const series = SERIES[c.scheme];
+  const { role, isClientDemoLocked, unlockOwnerRole, pinLockedUntil, availableMonths, getMonthlySummary, products } =
+    useInventory();
 
-  const [selectedMonthKey, setSelectedMonthKey] = useState<string>(
-    availableMonths[0]?.key || '2026-10'
+  const [monthKey, setMonthKey] = useState(availableMonths[0]?.key);
+  const [pin, setPin] = useState('');
+  const [exporting, setExporting] = useState<'pdf' | 'csv' | null>(null);
+  const activeKey = monthKey && availableMonths.some((m) => m.key === monthKey) ? monthKey : availableMonths[0]?.key;
+  const summary = useMemo(() => getMonthlySummary(activeKey), [getMonthlySummary, activeKey]);
+
+  const chart = useMemo(
+    () =>
+      availableMonths
+        .slice(0, 6)
+        .reverse()
+        .map((m) => {
+          const s = getMonthlySummary(m.key);
+          return { key: m.key, label: m.label.split(' ')[0].slice(0, 3), revenue: s.totalRevenue, profit: s.grossProfit };
+        }),
+    [availableMonths, getMonthlySummary]
   );
-  const [pinInput, setPinInput] = useState<string>('');
+  const max = Math.max(1, ...chart.map((d) => Math.max(d.revenue, d.profit)));
 
-  const summary = useMemo(
-    () => getMonthlySummary(selectedMonthKey),
-    [getMonthlySummary, selectedMonthKey]
-  );
-
-  // Total stock value at a glance
-  const { totalStockCostValue, totalStockRetailValue, totalUnitsInStock } = useMemo(() => {
+  const stock = useMemo(() => {
     let cost = 0;
     let retail = 0;
-    let units = 0;
     for (const p of products) {
-      cost += p.quantity * p.buyingPrice;
-      retail += p.quantity * p.sellingPrice;
-      units += p.quantity;
+      const q = Math.max(0, p.quantity);
+      cost += q * p.buyingPrice;
+      retail += q * p.sellingPrice;
     }
-    return {
-      totalStockCostValue: cost,
-      totalStockRetailValue: retail,
-      totalUnitsInStock: units,
-    };
+    return { cost, retail };
   }, [products]);
 
-  // Month-by-month comparison data
-  const comparisonData = useMemo(() => {
-    return availableMonths
-      .slice(0, 5)
-      .reverse()
-      .map((m) => {
-        const s = getMonthlySummary(m.key);
-        return {
-          key: m.key,
-          shortLabel: m.label.slice(0, 3) + ' ' + m.key.slice(2, 4),
-          revenue: s.totalRevenue,
-          profit: s.grossProfit,
-        };
-      });
-  }, [availableMonths, getMonthlySummary]);
-
-  const maxChartRevenue = useMemo(() => {
-    return Math.max(100, ...comparisonData.map((d) => d.revenue));
-  }, [comparisonData]);
-
-  // STAFF ROLE LOCK SCREEN
-  if (role !== 'OWNER') {
-    const handleUnlock = async () => {
-      const ok = await unlockOwnerRole(pinInput);
-      if (ok) {
-        setPinInput('');
-      } else {
-        Alert.alert('Incorrect PIN', 'Default Owner PIN is 1234.');
-      }
+  if (role !== 'OWNER' || isClientDemoLocked) {
+    const unlock = async () => {
+      const res = await unlockOwnerRole(pin);
+      setPin('');
+      if (res === 'wrong') showAlert('Wrong PIN', 'Try again.');
+      if (res === 'locked') showAlert('Too many attempts', 'Wait 30 seconds and try again.');
     };
-
+    const lockedOut = Date.now() < pinLockedUntil;
     return (
-      <View style={styles.lockContainer}>
-        <View style={styles.lockCard}>
-          <View style={styles.lockIconCircle}>
-            <Ionicons name="lock-closed" size={32} color="#007AFF" />
-          </View>
-          <Text style={styles.lockTitle}>Owner Access Required</Text>
-          <Text style={styles.lockSubtitle}>
-            Staff accounts can sell, restock, and view stock levels. Enter the Owner PIN to view monthly revenue, gross profit, and export accountant reports.
-          </Text>
-          <TextInput
-            style={styles.pinInput}
-            placeholder="Enter Owner PIN (Default: 1234)"
-            placeholderTextColor="#94A3B8"
-            keyboardType="number-pad"
-            secureTextEntry
-            value={pinInput}
-            onChangeText={setPinInput}
-          />
-          <TouchableOpacity style={styles.unlockBtn} onPress={handleUnlock}>
-            <Ionicons name="key-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.unlockBtnText}>Unlock Profit Dashboard</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <Screen>
+        <LargeTitle title="Profit" />
+        <EmptyState
+          icon="lock-closed-outline"
+          title="Owner only"
+          message={
+            isClientDemoLocked
+              ? 'Revenue and profit are hidden in preview mode.'
+              : 'Buying prices, revenue and profit are visible to the owner. Enter the owner PIN to continue.'
+          }
+        />
+        {!isClientDemoLocked ? (
+          <>
+            <Section>
+              <Field label="Owner PIN" value={pin} onChangeText={(t) => setPin(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" secureTextEntry maxLength={8} onSubmitEditing={unlock} />
+            </Section>
+            <View style={{ padding: space.lg }}>
+              <Button title={lockedOut ? 'Try again in a moment' : 'Unlock'} onPress={unlock} disabled={pin.length < 4 || lockedOut} />
+            </View>
+          </>
+        ) : null}
+      </Screen>
     );
   }
 
+  const exportReport = async (kind: 'pdf' | 'csv') => {
+    setExporting(kind);
+    try {
+      if (kind === 'pdf') await exportMonthlyReportPdf(summary, stock.cost, stock.retail);
+      else await exportMonthlyReportExcelCsv(summary);
+    } catch (e) {
+      showAlert('Export failed', e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const marginTone = summary.profitMarginPercent >= 20 ? 'green' : summary.profitMarginPercent > 0 ? 'orange' : 'red';
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* MONTH SELECTOR */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.monthRow}
-      >
-        {availableMonths.map((m) => {
-          const active = m.key === selectedMonthKey;
-          return (
-            <TouchableOpacity
-              key={m.key}
-              style={[styles.monthChip, active && styles.monthChipActive]}
-              onPress={() => setSelectedMonthKey(m.key)}
-            >
-              <Ionicons
-                name="calendar-outline"
-                size={14}
-                color={active ? '#FFFFFF' : '#636366'}
-              />
+    <Screen>
+      <LargeTitle title="Profit" subtitle={summary.monthLabel} accessory={<SyncIndicator />} />
+
+      {/* KPI tiles */}
+      <View style={{ flexDirection: 'row', gap: space.md, paddingHorizontal: space.lg }}>
+        <StatTile label="Revenue" value={formatMoney(summary.totalRevenue)} />
+        <StatTile label="Gross profit" value={formatMoney(summary.grossProfit)} tone={summary.grossProfit < 0 ? 'red' : undefined} />
+      </View>
+      <View style={{ flexDirection: 'row', gap: space.md, paddingHorizontal: space.lg, marginTop: space.md }}>
+        <StatTile label="Margin" value={`${summary.profitMarginPercent.toFixed(1)}%`} tone={summary.totalRevenue ? marginTone : undefined} />
+        <StatTile label="Units sold" value={summary.totalUnitsSold.toLocaleString('en-GB')} />
+      </View>
+
+      {/* Month comparison — tap a month to select it */}
+      <Section header="Last 6 months">
+        <View style={{ padding: space.lg, backgroundColor: c.surface }}>
+          <View style={{ flexDirection: 'row', gap: space.lg, marginBottom: space.md }} accessibilityRole="text">
+            {[
+              { name: 'Revenue', color: series.revenue },
+              { name: 'Gross profit', color: series.profit },
+            ].map((l) => (
+              <View key={l.name} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: l.color }} />
+                <Text style={[type.footnote, { color: c.secondaryLabel }]}>{l.name}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 150, borderBottomWidth: 1, borderBottomColor: c.separator }}>
+            {chart.map((d) => {
+              const on = d.key === activeKey;
+              const h = (v: number) => (v <= 0 ? 0 : Math.max(3, (v / max) * 120));
+              return (
+                <Tap
+                  key={d.key}
+                  onPress={() => setMonthKey(d.key)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${d.label}: revenue ${formatMoney(d.revenue)}, profit ${formatMoney(d.profit)}`}
+                  style={{ flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center', borderRadius: radius.sm, backgroundColor: on ? c.fill : 'transparent' }}
+                >
+                  {on ? (
+                    <Text style={[type.caption2, tabular, { color: c.label, marginBottom: 4 }]} numberOfLines={1}>
+                      {shortMoney(d.revenue)}
+                    </Text>
+                  ) : null}
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
+                    <View style={{ width: 10, height: h(d.revenue), backgroundColor: series.revenue, borderTopLeftRadius: 4, borderTopRightRadius: 4 }} />
+                    <View style={{ width: 10, height: h(d.profit), backgroundColor: series.profit, borderTopLeftRadius: 4, borderTopRightRadius: 4 }} />
+                  </View>
+                </Tap>
+              );
+            })}
+          </View>
+          <View style={{ flexDirection: 'row', marginTop: 6 }}>
+            {chart.map((d) => (
               <Text
-                style={[styles.monthChipText, active && styles.monthChipTextActive]}
+                key={d.key}
+                style={[type.caption1, { flex: 1, textAlign: 'center', color: d.key === activeKey ? c.label : c.secondaryLabel, fontWeight: d.key === activeKey ? '600' : '400' }]}
               >
-                {m.label}
+                {d.label}
               </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* MONTHLY REVENUE & GROSS PROFIT KPI CARDS */}
-      <View style={styles.kpiGrid}>
-        <View style={[styles.kpiCard, styles.kpiCardPrimary]}>
-          <Text style={styles.kpiLabelLight}>Monthly Gross Profit</Text>
-          <Text style={styles.kpiValueLight}>£{summary.grossProfit.toFixed(2)}</Text>
-          <Text style={styles.kpiSubLight}>
-            {summary.profitMarginPercent.toFixed(1)}% gross margin
-          </Text>
-        </View>
-
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiLabel}>Monthly Revenue</Text>
-          <Text style={styles.kpiValue}>£{summary.totalRevenue.toFixed(2)}</Text>
-          <Text style={styles.kpiSub}>
-            {summary.totalUnitsSold} units sold • Cost £{summary.totalCostOfGoods.toFixed(2)}
-          </Text>
-        </View>
-      </View>
-
-      {/* TOTAL STOCK VALUE AT A GLANCE */}
-      <View style={styles.stockValuationCard}>
-        <View>
-          <Text style={styles.valuationTitle}>Total Live Stock Value</Text>
-          <Text style={styles.valuationSub}>{totalUnitsInStock} total units in stock</Text>
-        </View>
-        <View style={styles.valuationFigures}>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.valuationSmallLabel}>At Cost</Text>
-            <Text style={styles.valuationCostVal}>
-              £{totalStockCostValue.toFixed(2)}
-            </Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.valuationSmallLabel}>Retail Value</Text>
-            <Text style={styles.valuationRetailVal}>
-              £{totalStockRetailValue.toFixed(2)}
-            </Text>
+            ))}
           </View>
         </View>
-      </View>
+      </Section>
 
-      {/* REPORT EXPORT FOR ACCOUNTANT */}
-      <View style={styles.exportSectionCard}>
-        <Text style={styles.sectionHeader}>
-          Export {summary.monthLabel} Report for Accountant
-        </Text>
-        <Text style={styles.sectionSub}>
-          Prices are saved with each sale, so changing a price today never alters past months&apos; figures.
-        </Text>
-        <View style={styles.exportBtnsRow}>
-          <TouchableOpacity
-            style={styles.exportPdfBtn}
-            onPress={() =>
-              exportMonthlyReportPdf(
-                summary,
-                totalStockCostValue,
-                totalStockRetailValue
-              )
-            }
-          >
-            <Ionicons name="document-text-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.exportPdfBtnText}>Download PDF</Text>
-          </TouchableOpacity>
+      <Section header={`${summary.monthLabel} in detail`}>
+        <Row title="Revenue" value={formatMoney(summary.totalRevenue)} />
+        <Row title="Cost of goods sold" value={formatMoney(summary.totalCostOfGoods)} />
+        <Row title="Gross profit" value={formatMoney(summary.grossProfit)} />
+        <Row title="Restocked" value={`${summary.totalUnitsRestocked} units · ${formatMoney(summary.restockSpend)}`} />
+      </Section>
 
-          <TouchableOpacity
-            style={styles.exportExcelBtn}
-            onPress={() => exportMonthlyReportExcelCsv(summary)}
-          >
-            <Ionicons name="grid-outline" size={18} color="#007AFF" />
-            <Text style={styles.exportExcelBtnText}>Export Excel (CSV)</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* MONTH-BY-MONTH COMPARISON CHART */}
-      <View style={styles.sectionCard}>
-        <View style={styles.chartHeaderRow}>
-          <Text style={styles.sectionHeader}>Month-by-Month Comparison</Text>
-          <View style={styles.legendRow}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendSwatch, { backgroundColor: '#94A3B8' }]} />
-              <Text style={styles.legendText}>Revenue</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendSwatch, { backgroundColor: '#007AFF' }]} />
-              <Text style={styles.legendText}>Gross Profit</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.chartBarsWrap}>
-          {comparisonData.map((col) => {
-            const revHeight = Math.max(8, (col.revenue / maxChartRevenue) * 110);
-            const profHeight = Math.max(6, (col.profit / maxChartRevenue) * 110);
-            return (
-              <View key={col.key} style={styles.chartCol}>
-                <Text style={styles.chartTopVal}>£{col.profit.toFixed(0)}</Text>
-                <View style={styles.barPair}>
-                  <View
-                    style={[
-                      styles.barItem,
-                      { height: revHeight, backgroundColor: '#D1D1D6' },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      styles.barItem,
-                      { height: profHeight, backgroundColor: '#007AFF' },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.chartMonthLabel}>{col.shortLabel}</Text>
-              </View>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* BEST SELLERS */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionHeader}>
-          Best Sellers ({summary.monthLabel})
-        </Text>
+      <Section header="Best sellers" footer="Ranked by gross profit.">
         {summary.bestSellers.length === 0 ? (
-          <Text style={styles.emptyText}>No sales recorded for this month yet.</Text>
+          <Row title="No sales this month" />
         ) : (
-          summary.bestSellers.slice(0, 5).map((item, index) => (
-            <View key={item.productId} style={styles.rankRow}>
-              <View style={styles.rankBadge}>
-                <Text style={styles.rankBadgeText}>#{index + 1}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.rankName}>{item.productName}</Text>
-                <Text style={styles.rankSub}>
-                  {item.unitsSold} sold • Revenue £{item.revenue.toFixed(2)}
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.rankProfit}>+£{item.grossProfit.toFixed(2)}</Text>
-                <Text style={styles.rankSub}>profit</Text>
-              </View>
-            </View>
+          summary.bestSellers.slice(0, 5).map((p, i) => (
+            <Row
+              key={p.productId}
+              title={p.productName}
+              subtitle={`${p.unitsSold} sold · ${formatMoney(p.revenue)} revenue`}
+              value={formatMoney(p.grossProfit)}
+              left={<Text style={[type.headline, tabular, { color: c.secondaryLabel, width: 18 }]}>{i + 1}</Text>}
+            />
           ))
         )}
-      </View>
+      </Section>
 
-      {/* WORST / SLOWEST SELLERS */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionHeader}>
-          Slowest / Worst Sellers ({summary.monthLabel})
-        </Text>
-        {summary.worstSellers.slice(0, 3).map((item) => (
-          <View key={item.productId} style={styles.rankRow}>
-            <View style={[styles.rankBadge, { backgroundColor: '#FEF2F2' }]}>
-              <Ionicons name="trending-down" size={14} color="#DC2626" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rankName}>{item.productName}</Text>
-              <Text style={styles.rankSub}>{item.unitsSold} units sold this month</Text>
-            </View>
-            <Text style={[styles.rankProfit, { color: '#8E8E93' }]}>
-              £{item.grossProfit.toFixed(2)}
-            </Text>
-          </View>
+      <Section header="Slowest sellers" footer="Consider promoting these or ordering fewer.">
+        {summary.worstSellers.slice(0, 5).map((p) => (
+          <Row key={p.productId} title={p.productName} value={`${p.unitsSold} sold`} />
         ))}
-      </View>
-    </ScrollView>
+      </Section>
+
+      <Section header="Stock value now">
+        <Row title="At buying price" value={formatMoney(stock.cost)} />
+        <Row title="At selling price" value={formatMoney(stock.retail)} />
+      </Section>
+
+      <Section
+        header="For your accountant"
+        footer="Prices are saved with every sale, so changing a price today never changes past months."
+      >
+        <Row
+          title="Monthly report (PDF)"
+          left={<Ionicons name="document-text-outline" size={20} color={c.tint} />}
+          tinted
+          onPress={() => exportReport('pdf')}
+          disabled={exporting !== null}
+        />
+        <Row
+          title="Sales spreadsheet (CSV)"
+          left={<Ionicons name="grid-outline" size={20} color={c.tint} />}
+          tinted
+          onPress={() => exportReport('csv')}
+          disabled={exporting !== null}
+        />
+      </Section>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  content: {
-    padding: 16,
-    gap: 14,
-    paddingBottom: 32,
-  },
-  monthRow: {
-    gap: 8,
-    paddingBottom: 2,
-  },
-  monthChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF',
-    gap: 6,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  monthChipActive: {
-    backgroundColor: '#000000',
-  },
-  monthChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#636366',
-  },
-  monthChipTextActive: {
-    color: '#FFFFFF',
-  },
-  kpiGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  kpiCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 20,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  kpiCardPrimary: {
-    backgroundColor: '#007AFF',
-    shadowColor: '#007AFF',
-    shadowOpacity: 0.22,
-  },
-  kpiLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  kpiValue: {
-    fontSize: 23,
-    fontWeight: '700',
-    color: '#000000',
-    marginTop: 6,
-    letterSpacing: -0.5,
-  },
-  kpiSub: {
-    fontSize: 11,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-  kpiLabelLight: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.85)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  kpiValueLight: {
-    fontSize: 23,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginTop: 6,
-    letterSpacing: -0.5,
-  },
-  kpiSubLight: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.85)',
-    marginTop: 4,
-  },
-  stockValuationCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#1C1C1E',
-    padding: 16,
-    borderRadius: 20,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    elevation: 4,
-  },
-  valuationTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  valuationSub: {
-    color: '#8E8E93',
-    fontSize: 11.5,
-    marginTop: 2,
-  },
-  valuationFigures: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  valuationSmallLabel: {
-    color: '#8E8E93',
-    fontSize: 10,
-  },
-  valuationCostVal: {
-    color: '#E5E5EA',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  valuationRetailVal: {
-    color: '#34C759',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  exportSectionCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 20,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 1,
-  },
-  sectionCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 20,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 1,
-  },
-  sectionHeader: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#000000',
-    letterSpacing: -0.3,
-  },
-  sectionSub: {
-    fontSize: 11.5,
-    color: '#8E8E93',
-    marginTop: 3,
-    marginBottom: 14,
-    lineHeight: 16,
-  },
-  exportBtnsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  exportPdfBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#007AFF',
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
-  },
-  exportPdfBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  exportExcelBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
-  },
-  exportExcelBtnText: {
-    color: '#007AFF',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  chartHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  legendSwatch: {
-    width: 10,
-    height: 10,
-    borderRadius: 3,
-  },
-  legendText: {
-    fontSize: 10,
-    color: '#8E8E93',
-    fontWeight: '600',
-  },
-  chartBarsWrap: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    height: 150,
-    paddingTop: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C6C6C8',
-  },
-  chartCol: {
-    alignItems: 'center',
-  },
-  chartTopVal: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#007AFF',
-    marginBottom: 4,
-  },
-  barPair: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  barItem: {
-    width: 14,
-    borderTopLeftRadius: 5,
-    borderTopRightRadius: 5,
-  },
-  chartMonthLabel: {
-    fontSize: 10,
-    color: '#8E8E93',
-    marginTop: 6,
-    marginBottom: 4,
-    fontWeight: '600',
-  },
-  rankRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 11,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C6C6C8',
-    gap: 10,
-  },
-  rankBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rankBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#007AFF',
-  },
-  rankName: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: '#000000',
-    letterSpacing: -0.1,
-  },
-  rankSub: {
-    fontSize: 11,
-    color: '#8E8E93',
-  },
-  rankProfit: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#34C759',
-  },
-  emptyText: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 8,
-  },
-  lockContainer: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  lockCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 26,
-    alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  lockIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  lockTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#000000',
-    letterSpacing: -0.3,
-  },
-  lockSubtitle: {
-    fontSize: 12.5,
-    color: '#8E8E93',
-    textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 18,
-    lineHeight: 18,
-  },
-  pinInput: {
-    width: '100%',
-    height: 46,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    textAlign: 'center',
-    marginBottom: 12,
-    color: '#000000',
-  },
-  unlockBtn: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
-  },
-  unlockBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 15,
-  },
-});
