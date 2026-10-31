@@ -1,7 +1,7 @@
 import { expect, Page, test } from '@playwright/test';
 
 const APP = 'app/';
-const EXTERNAL = /ntfy\.sh|githubusercontent\.com|github\.io|jsdelivr\.net/;
+const EXTERNAL = /ntfy\.sh|githubusercontent\.com|github\.io|jsdelivr\.net|stock-qr-api\.vercel\.app/;
 
 /** Keep tests deterministic: no real sync relay or update server. */
 async function offline(page: Page) {
@@ -100,14 +100,20 @@ test.describe('iPhone web app', () => {
     expect(stored.deleted).toBe(true);
   });
 
-  test('profit is hidden from staff and the PIN unlocks it', async ({ page }) => {
+  test('profit is visible to the owner and hidden in preview mode', async ({ page }) => {
     await open(page);
+    await page.getByRole('tab', { name: /Profit/ }).click();
+    await expect(page.getByText('Gross profit').first()).toBeVisible();
     await page.getByRole('tab', { name: 'Settings' }).click();
-    await page.getByText('Switch to staff mode').click();
+    page.once('dialog', (d) => d.accept());
+    await page.getByText('Lock this phone in preview mode').click();
     await page.getByRole('tab', { name: /Profit/ }).click();
     await expect(page.getByText('Owner only')).toBeVisible();
-    await page.getByLabel('Owner PIN', { exact: true }).fill('1234');
-    await page.getByText('Unlock', { exact: true }).click();
+    await page.getByRole('tab', { name: 'Settings' }).click();
+    await page.getByLabel('Licence key', { exact: true }).fill('MOBILE-PRO-2026');
+    page.once('dialog', (d) => d.accept());
+    await page.getByText('Unlock', { exact: true }).last().click();
+    await page.getByRole('tab', { name: /Profit/ }).click();
     await expect(page.getByText('Gross profit').first()).toBeVisible();
   });
 
@@ -148,5 +154,45 @@ test.describe('iPhone web app', () => {
     await open(page);
     const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     expect(bg).toBe('rgb(0, 0, 0)');
+  });
+
+  test('signing in to the cloud account syncs the catalogue', async ({ page }) => {
+    const pushed: any[] = [];
+    await page.route(/ntfy\.sh|githubusercontent\.com|jsdelivr\.net/, (r) => r.abort());
+    await page.route(/stock-qr-api\.vercel\.app\/api\/(.*)/, async (route) => {
+      const url = route.request().url();
+      const reply = (body: unknown, status = 200) =>
+        route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body), headers: { 'access-control-allow-origin': '*' } });
+      if (url.endsWith('/auth/status')) return reply({ hasOwner: true });
+      if (url.endsWith('/auth/login')) {
+        const body = JSON.parse(route.request().postData() || '{}');
+        return body.password === 'right password' ? reply({ token: 'tok', email: body.email }) : reply({ error: 'Email or password is wrong.' }, 401);
+      }
+      if (url.endsWith('/sync')) {
+        pushed.push(JSON.parse(route.request().postData() || '{}'));
+        return reply({
+          cursor: 3,
+          hasMore: false,
+          rejected: [],
+          transactions: [],
+          products: [{ id: 'cloud-1', name: 'Cloud Charger', category: 'Chargers', qrCode: 'STK-CLOU-0001', buyingPrice: 4, sellingPrice: 9.5, quantity: 6, openingQuantity: 6, minStockLevel: 1, updatedAt: '2026-10-30T10:00:00.000Z' }],
+        });
+      }
+      return reply({ error: 'Not found' }, 404);
+    });
+    await page.goto(APP);
+    await page.getByRole('tab', { name: 'Settings' }).click();
+    await page.getByText('Sign in', { exact: true }).first().click();
+    await page.getByLabel('Email', { exact: true }).fill('owner@shop.test');
+    await page.getByLabel('Password', { exact: true }).fill('wrong password');
+    await page.getByRole('button', { name: 'Sign in' }).last().click();
+    await expect(page.getByText('Email or password is wrong.')).toBeVisible();
+    await page.getByLabel('Password', { exact: true }).fill('right password');
+    await page.getByRole('button', { name: 'Sign in' }).last().click();
+    await expect(page.getByText('owner@shop.test')).toBeVisible();
+    await page.getByRole('tab', { name: 'Products' }).click();
+    await expect(page.getByText('Cloud Charger')).toBeVisible();
+    await expect(page.getByText(/iPhone 16 Pro Max/)).toHaveCount(0); // sample data removed, never uploaded
+    expect(pushed.every((b) => b.products.every((p: any) => !String(p.id).startsWith('prod-')))).toBe(true);
   });
 });

@@ -12,22 +12,28 @@ One codebase (React Native + Expo SDK 52) that runs as:
 - **Products** — catalogue with search, categories, unique QR code per product, single-label and A4-sheet printing, factory-barcode linking.
 - **Stock** — low-stock reorder list (printable supplier order), expiry tracker, stock value.
 - **Profit** (owner only) — monthly revenue, gross profit, margin, best/slowest sellers, PDF and CSV exports. Prices are stored with each sale, so past months never change.
-- **Settings** — owner PIN (stored hashed, 5 tries then a 30 s pause), staff mode, phone pairing, optional Supabase, updates, client preview lock.
+- **Settings** — cloud account (sign in, sync status, change password, sign out), currency, backup/restore, updates, client preview lock.
 - Apple Human Interface styling with automatic dark mode.
 
-## Sync between phones
+## Cloud account & backend
 
-Each store gets its own private, random sync code. In **Settings → Show pairing code**, then scan that QR from the other phone's **Scan** tab.
-Changes are shared within seconds through ntfy.sh; every phone keeps working offline and catches up later.
-Stock is calculated from the sales and restocks themselves, so two phones selling the same item at once both count.
+Each phone signs in to the shop's owner account (Settings → Cloud account). Every signed-in phone and the
+iPhone web app share the same products, stock and sales. Selling works offline; changes upload automatically.
 
-Optional: use your own Supabase project instead (Settings → Supabase). Run `supabase/schema.sql` in its SQL editor first — it is safe to re-run and upgrades older tables.
+- **API:** `server/` — Hono on Vercel (`https://stock-qr-api.vercel.app/api`), Neon Postgres (Frankfurt).
+- **First sign-in:** creates the single owner account and needs the one-time `SETUP_KEY` (Vercel env).
+- **Forgot password:** `cd server && npm run set-password -- you@example.com "new password"` (signs out all devices).
+- **Endpoints:** `/health`, `/auth/{status,setup,login,me,password,logout-all}`, `/sync`, `/products`,
+  `/transactions`, `/reports/monthly?month=YYYY-MM&tz=Europe/Berlin`, `/reports/stock`, `/export`.
+- **Deploy the API:** `npx vercel deploy server --prod` (env: `DATABASE_URL`, `JWT_SECRET`, `SETUP_KEY`, `ALLOWED_ORIGINS`).
+- **Schema changes:** edit `server/db/schema.sql`, then `cd server && npm run migrate` (safe to re-run).
+- **Tests:** `cd server && npm test` (runs against an in-process Postgres).
 
 ## Install on iPhone
 
 1. Open the web app link in **Safari**.
 2. Tap **Share → Add to Home Screen**.
-3. Open it from the home screen, then pair it with the Android phone (Settings → Pair with another store, or scan the pairing QR).
+3. Open it from the home screen, then sign in with the owner account (Settings → Cloud account).
 
 The iPhone version scans QR stickers with the camera. Factory barcodes (EAN/UPC) can be picked from the list instead.
 
@@ -47,8 +53,9 @@ Code layout:
 
 - `src/logic/inventoryLogic.ts` — pure rules (stock maths, sync merging, code matching, reports). Fully unit-tested in `__tests__/`.
 - `src/context/InventoryContext.tsx` — app state and actions.
-- `src/sync/useSyncEngine.ts` — phone-to-phone and Supabase sync.
-- `src/services/` — storage, backup, ntfy relay, Supabase.
+- `src/sync/useSyncEngine.ts` — sync with the cloud API.
+- `src/services/` — storage, backup, API client.
+- `server/` — backend API and database schema.
 - `src/logic/money.ts` — currency.
 - `src/ui/` — iOS-style components, theme tokens, crash screen.
 - `src/screens/` — the five screens.
@@ -73,9 +80,9 @@ keytool -genkeypair -v -keystore stockqr.keystore -alias stockqr -keyalg RSA -ke
 
 `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (stockqr), `ANDROID_KEY_PASSWORD`.
 Keep the keystore file safe — losing it means users must reinstall. Switching keys requires phones to uninstall the old app once,
-so back up first (Settings → Data → Back up inventory) or keep another phone paired.
+so back up first (Settings → Data → Back up inventory) or keep another phone signed in.
 
 ## Privacy
 
-Inventory stays on the phone. With pairing on, changes are sent to ntfy.sh under the store's random code
-(anyone holding the code can read them). With Supabase, data goes to your own project instead.
+Inventory is stored on the phone and, when signed in, in the shop's own Neon database via the API
+(HTTPS only, owner sign-in required, passwords stored as bcrypt hashes). Nothing is sent anywhere else.

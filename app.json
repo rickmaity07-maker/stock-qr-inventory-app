@@ -2,14 +2,14 @@
   "expo": {
     "name": "Stock & QR Inventory",
     "slug": "stock-qr-inventory-app",
-    "version": "2.5.0",
+    "version": "2.6.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "primaryColor": "#007AFF",
     "android": {
       "package": "com.stockqr.inventory",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#007AFF"
@@ -53,6 +53,9 @@
       "image": "./assets/adaptive-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#007AFF"
+    },
+    "extra": {
+      "apiUrl": "https://stock-qr-api.vercel.app/api"
     }
   }
 }

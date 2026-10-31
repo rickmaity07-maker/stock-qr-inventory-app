@@ -19,9 +19,28 @@ const target = path.join(root, 'docs', 'app');
 const appJson = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8')).expo;
 const base = `${appJson.experiments?.baseUrl ?? ''}/`.replace(/\/+$/, '/');
 
-console.log('› Exporting web bundle…');
+// Metro caches the app config (version, API address). Clear its cache whenever app.json changes,
+// otherwise the bundle silently keeps the old values.
+const appJsonHash = crypto.createHash('sha256').update(fs.readFileSync(path.join(root, 'app.json'))).digest('hex');
+const hashFile = path.join(root, 'node_modules', '.cache', 'stockqr-app-json.hash');
+const clear = process.argv.includes('--clear') || !fs.existsSync(hashFile) || fs.readFileSync(hashFile, 'utf8') !== appJsonHash;
+
+console.log(`› Exporting web bundle${clear ? ' (app.json changed — clearing cache)' : ''}…`);
 fs.rmSync(out, { recursive: true, force: true });
-execSync(`npx expo export --platform web --output-dir web-build`, { cwd: root, stdio: 'inherit' });
+execSync(`npx expo export --platform web --output-dir web-build${clear ? ' --clear' : ''}`, { cwd: root, stdio: 'inherit' });
+fs.mkdirSync(path.dirname(hashFile), { recursive: true });
+fs.writeFileSync(hashFile, appJsonHash);
+
+// The bundle must carry the current version and API address
+{
+  const bundle = fs
+    .readdirSync(path.join(out, '_expo', 'static', 'js', 'web'))
+    .map((f) => fs.readFileSync(path.join(out, '_expo', 'static', 'js', 'web', f), 'utf8'))
+    .join('\n');
+  if (!bundle.includes(appJson.version)) throw new Error(`Web bundle does not contain app version ${appJson.version}`);
+  const apiUrl = appJson.extra?.apiUrl;
+  if (apiUrl && !bundle.includes(new URL(apiUrl).host)) throw new Error(`Web bundle does not contain the API address ${apiUrl}`);
+}
 
 // ---- move fonts out of "node_modules" -------------------------------------------
 // Expo puts icon fonts under assets/node_modules/…, but .gitignore skips every
