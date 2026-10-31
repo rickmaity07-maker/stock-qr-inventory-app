@@ -3,6 +3,7 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import { csvCell, localMonthKey } from '../logic/inventoryLogic';
+import { currencySymbol } from '../logic/money';
 import { MonthlySummary, Product } from '../types/inventory';
 import { generateRealQrMatrix, isFinderCenter } from '../components/DesignerQrCode';
 
@@ -60,7 +61,7 @@ export async function printProductQrLabels(
     <div class="sticker">
       <div class="sticker-top-bar">
         <span class="cat-pill">${escapeHtml(product.category || 'STOCK')}</span>
-        <span class="price-pill">£${product.sellingPrice.toFixed(2)}</span>
+        <span class="price-pill">${currencySymbol()}${product.sellingPrice.toFixed(2)}</span>
       </div>
       <div class="product-name">${escapeHtml(product.name)}</div>
       <div class="qr-frame">${qrMarkup}</div>
@@ -212,9 +213,9 @@ export async function exportMonthlyReportPdf(
         <td>#${idx + 1}</td>
         <td>${escapeHtml(item.productName)}</td>
         <td style="text-align:right">${item.unitsSold}</td>
-        <td style="text-align:right">£${item.revenue.toFixed(2)}</td>
-        <td style="text-align:right">£${item.costOfGoods.toFixed(2)}</td>
-        <td style="text-align:right;font-weight:700;color:#0F766E">£${item.grossProfit.toFixed(2)}</td>
+        <td style="text-align:right">${currencySymbol()}${item.revenue.toFixed(2)}</td>
+        <td style="text-align:right">${currencySymbol()}${item.costOfGoods.toFixed(2)}</td>
+        <td style="text-align:right;font-weight:700;color:#0F766E">${currencySymbol()}${item.grossProfit.toFixed(2)}</td>
       </tr>
     `
     )
@@ -237,10 +238,10 @@ export async function exportMonthlyReportPdf(
           <td>${dateStr}</td>
           <td>${escapeHtml(tx.productName)}</td>
           <td style="text-align:right">${tx.quantity}</td>
-          <td style="text-align:right">£${tx.unitBuyingPrice.toFixed(2)}</td>
-          <td style="text-align:right">£${tx.unitSellingPrice.toFixed(2)}</td>
-          <td style="text-align:right">£${revenue.toFixed(2)}</td>
-          <td style="text-align:right;font-weight:700;color:#0F766E">£${profit.toFixed(2)}</td>
+          <td style="text-align:right">${currencySymbol()}${tx.unitBuyingPrice.toFixed(2)}</td>
+          <td style="text-align:right">${currencySymbol()}${tx.unitSellingPrice.toFixed(2)}</td>
+          <td style="text-align:right">${currencySymbol()}${revenue.toFixed(2)}</td>
+          <td style="text-align:right;font-weight:700;color:#0F766E">${currencySymbol()}${profit.toFixed(2)}</td>
         </tr>
       `;
     })
@@ -326,15 +327,15 @@ export async function exportMonthlyReportPdf(
         <div class="kpi-grid">
           <div class="kpi-card">
             <div class="kpi-label">Monthly Revenue</div>
-            <div class="kpi-value">£${summary.totalRevenue.toFixed(2)}</div>
+            <div class="kpi-value">${currencySymbol()}${summary.totalRevenue.toFixed(2)}</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Cost of Goods Sold</div>
-            <div class="kpi-value">£${summary.totalCostOfGoods.toFixed(2)}</div>
+            <div class="kpi-value">${currencySymbol()}${summary.totalCostOfGoods.toFixed(2)}</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Monthly Gross Profit</div>
-            <div class="kpi-value" style="color:#0F766E">£${summary.grossProfit.toFixed(2)}</div>
+            <div class="kpi-value" style="color:#0F766E">${currencySymbol()}${summary.grossProfit.toFixed(2)}</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Gross Margin / Units</div>
@@ -378,7 +379,7 @@ export async function exportMonthlyReportPdf(
         </table>
 
         <div class="note">
-          Current Live Inventory Valuation: Cost Value £${totalStockCostValue.toFixed(2)} | Retail Value £${totalStockRetailValue.toFixed(2)}.
+          Current Live Inventory Valuation: Cost Value ${currencySymbol()}${totalStockCostValue.toFixed(2)} | Retail Value ${currencySymbol()}${totalStockRetailValue.toFixed(2)}.
           Note: Buying and selling prices are locked at the time of each sale so subsequent price changes never alter historical monthly figures.
         </div>
       </body>
@@ -408,14 +409,14 @@ export async function exportMonthlyReportPdf(
 export async function exportMonthlyReportExcelCsv(summary: MonthlySummary): Promise<void> {
   const lines: string[] = [];
   lines.push(csvCell(`Stock & QR Inventory - Monthly Report (${summary.monthLabel})`));
-  lines.push(`"Monthly Revenue","£${summary.totalRevenue.toFixed(2)}"`);
-  lines.push(`"Cost of Goods Sold","£${summary.totalCostOfGoods.toFixed(2)}"`);
-  lines.push(`"Monthly Gross Profit","£${summary.grossProfit.toFixed(2)}"`);
+  lines.push(`"Monthly Revenue","${currencySymbol()}${summary.totalRevenue.toFixed(2)}"`);
+  lines.push(`"Cost of Goods Sold","${currencySymbol()}${summary.totalCostOfGoods.toFixed(2)}"`);
+  lines.push(`"Monthly Gross Profit","${currencySymbol()}${summary.grossProfit.toFixed(2)}"`);
   lines.push(`"Gross Profit Margin","${summary.profitMarginPercent.toFixed(2)}%"`);
   lines.push(`"Total Units Sold","${summary.totalUnitsSold}"`);
   lines.push('');
   lines.push(
-    '"Date","Time","Product Name","Quantity Sold","Unit Buying Price (£)","Unit Selling Price (£)","Total Revenue (£)","Total Cost (£)","Gross Profit (£)","Recorded By"'
+    `"Date","Time","Product Name","Quantity Sold","Unit Buying Price (${currencySymbol()})","Unit Selling Price (${currencySymbol()})","Total Revenue (${currencySymbol()})","Total Cost (${currencySymbol()})","Gross Profit (${currencySymbol()})","Recorded By"`
   );
 
   for (const tx of summary.salesTransactions) {
@@ -515,8 +516,8 @@ export async function printReorderListPdf(lowStockProducts: Product[]): Promise<
           <td style="text-align:right;color:#DC2626;font-weight:700">${p.quantity}</td>
           <td style="text-align:right">${p.minStockLevel}</td>
           <td style="text-align:right;font-weight:700">${suggestedOrder}</td>
-          <td style="text-align:right">£${p.buyingPrice.toFixed(2)}</td>
-          <td style="text-align:right">£${estCost.toFixed(2)}</td>
+          <td style="text-align:right">${currencySymbol()}${p.buyingPrice.toFixed(2)}</td>
+          <td style="text-align:right">${currencySymbol()}${estCost.toFixed(2)}</td>
         </tr>
       `;
     })

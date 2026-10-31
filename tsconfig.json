@@ -16,9 +16,8 @@
   ],
   "exclude": [
     "node_modules",
-    "dist",
+    "web-build",
     "docs",
-    "app/_layout.tsx",
-    "app/(tabs)/_layout.tsx"
+    "dist"
   ]
 }

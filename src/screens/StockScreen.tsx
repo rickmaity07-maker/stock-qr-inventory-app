@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useInventory } from '../../src/context/InventoryContext';
-import { Product } from '../../src/types/inventory';
-import { printReorderListPdf } from '../../src/utils/printAndExport';
+import { currencySymbol } from '../logic/money';
+import { useInventory } from '../context/InventoryContext';
+import { Product } from '../types/inventory';
+import { printReorderListPdf } from '../utils/printAndExport';
 import {
   Badge,
   Button,
@@ -17,11 +18,11 @@ import {
   Sheet,
   Stepper,
   StatTile,
-} from '../../src/ui/components';
-import { SyncIndicator } from '../../src/ui/nav';
-import { showAlert } from '../../src/ui/dialog';
-import { formatMoney, space, type, usePalette } from '../../src/ui/theme';
-import { daysUntil, isValidIsoDate, parseNonNegativeNumber } from '../../src/logic/inventoryLogic';
+} from '../ui/components';
+import { SyncIndicator } from '../ui/nav';
+import { showAlert } from '../ui/dialog';
+import { formatMoney, space, type, usePalette } from '../ui/theme';
+import { daysUntil, isValidIsoDate, parseNonNegativeNumber } from '../logic/inventoryLogic';
 
 type View_ = 'REORDER' | 'EXPIRY' | 'ALL';
 
@@ -217,7 +218,7 @@ export default function StockScreen() {
               <Stepper value={qty} onChange={setQty} min={1} bigStep={10} />
             </View>
             <Section>
-              <Field label="Buying price per unit" value={price} onChangeText={setPrice} keyboardType="decimal-pad" suffix="£" error={priceError} />
+              <Field label="Buying price per unit" value={price} onChangeText={setPrice} keyboardType="decimal-pad" suffix={currencySymbol()} error={priceError} />
               <Field label="Expiry or warranty date (optional)" value={expiry} onChangeText={setExpiry} placeholder="YYYY-MM-DD" autoCapitalize="none" error={expiryError} />
             </Section>
             <View style={{ padding: space.lg }}>

@@ -4,9 +4,11 @@ import * as FileSystem from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Updates from 'expo-updates';
 import { Ionicons } from '@expo/vector-icons';
-import { APP_VERSION, useInventory } from '../../src/context/InventoryContext';
-import { DesignerQrCode } from '../../src/components/DesignerQrCode';
-import { buildPairingPayload } from '../../src/logic/inventoryLogic';
+import { APP_VERSION, useInventory } from '../context/InventoryContext';
+import { DesignerQrCode } from '../components/DesignerQrCode';
+import { buildPairingPayload } from '../logic/inventoryLogic';
+import { CURRENCIES, CurrencyCode } from '../logic/money';
+import { pickBackup, shareBackup } from '../services/backup';
 import {
   Button,
   Field,
@@ -17,9 +19,9 @@ import {
   Screen,
   Section,
   Sheet,
-} from '../../src/ui/components';
-import { confirmAction, showAlert } from '../../src/ui/dialog';
-import { radius, space, type, usePalette } from '../../src/ui/theme';
+} from '../ui/components';
+import { confirmAction, showAlert } from '../ui/dialog';
+import { radius, space, type, usePalette } from '../ui/theme';
 
 const CLIENT_DEMO_WEB_URL = 'https://rickmaity07-maker.github.io/stock-qr-inventory-app/client-demo.html';
 
@@ -52,6 +54,7 @@ export default function SettingsScreen() {
   const [key, setKey] = useState(cloudConfig.supabaseAnonKey);
   const [updateStatus, setUpdateStatus] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [currencyVisible, setCurrencyVisible] = useState(false);
 
   // ---- roles -------------------------------------------------------------
 
@@ -178,6 +181,31 @@ export default function SettingsScreen() {
 
   // ---- data --------------------------------------------------------------
 
+  const backupNow = async () => {
+    try {
+      await shareBackup(inv.makeBackup());
+    } catch (e) {
+      showAlert('Backup failed', e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const restoreFromFile = async () => {
+    try {
+      const backup = await pickBackup();
+      if (!backup) return;
+      const ok = await confirmAction({
+        title: 'Restore this backup?',
+        message: `${backup.products.length} products and ${backup.transactions.length} sales/restocks from ${new Date(backup.exportedAt).toLocaleDateString('en-GB')}. They are added to what is on this phone — nothing is deleted.`,
+        confirmText: 'Restore',
+      });
+      if (!ok) return;
+      const res = await inv.restoreBackup(backup);
+      showAlert('Backup restored', `${res.products} products and ${res.transactions} records merged.`);
+    } catch (e) {
+      showAlert('Could not restore', e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const startFresh = async () => {
     const ok = await confirmAction({
       title: 'Start your own store?',
@@ -300,8 +328,18 @@ export default function SettingsScreen() {
 
       {/* Data */}
       {isOwner ? (
-        <Section header="Data" footer={isSampleData ? 'This phone has sample products. Start fresh when you are ready to enter your own.' : undefined}>
+        <Section
+          header="Data"
+          footer={
+            isSampleData
+              ? 'This phone has sample products. Start fresh when you are ready to enter your own.'
+              : 'A backup file holds every product and sale. Keep one somewhere safe, e.g. iCloud Drive or Google Drive.'
+          }
+        >
           {isSampleData ? <Row title="Start my own store" tinted onPress={startFresh} /> : null}
+          <Row title="Currency" value={CURRENCIES[inv.currency].label} chevron onPress={() => setCurrencyVisible(true)} />
+          <Row title="Back up inventory" left={<Ionicons name="cloud-download-outline" size={20} color={c.tint} />} tinted onPress={backupNow} />
+          <Row title="Restore from backup" left={<Ionicons name="folder-open-outline" size={20} color={c.tint} />} tinted onPress={restoreFromFile} />
           <Row title="Load sample data" destructive onPress={restoreSample} />
         </Section>
       ) : null}
@@ -313,6 +351,23 @@ export default function SettingsScreen() {
           <Row title="Open the web demo link" left={<Ionicons name="share-outline" size={20} color={c.tint} />} tinted onPress={() => Linking.openURL(CLIENT_DEMO_WEB_URL)} />
         </Section>
       ) : null}
+
+      {/* Currency */}
+      <Sheet visible={currencyVisible} title="Currency" onClose={() => setCurrencyVisible(false)} closeLabel="Done">
+        <Section footer="Changes how prices are shown and exported. Stored amounts are not converted.">
+          {(Object.keys(CURRENCIES) as CurrencyCode[]).map((code) => (
+            <Row
+              key={code}
+              title={CURRENCIES[code].label}
+              onPress={() => {
+                inv.setCurrency(code);
+                setCurrencyVisible(false);
+              }}
+              right={inv.currency === code ? <Ionicons name="checkmark" size={20} color={c.tint} /> : undefined}
+            />
+          ))}
+        </Section>
+      </Sheet>
 
       {/* Pairing code sheet */}
       <Sheet visible={pairVisible} title="Pairing code" onClose={() => setPairVisible(false)} closeLabel="Done">

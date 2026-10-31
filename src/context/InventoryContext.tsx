@@ -1,14 +1,8 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import { AppState } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+/**
+ * App state: inventory, roles, settings. Storage lives in services/storage,
+ * syncing in sync/useSyncEngine, and all inventory rules in logic/inventoryLogic.
+ */
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import * as Crypto from 'expo-crypto';
 import Constants from 'expo-constants';
 import {
@@ -21,18 +15,19 @@ import {
   UserRole,
 } from '../types/inventory';
 import { INITIAL_PRODUCTS, INITIAL_TRANSACTIONS } from '../utils/seedData';
+import { resetSupabaseClient } from '../services/supabase';
 import {
-  explainSupabaseError,
-  fetchAllRows,
-  getSupabaseClient,
-  mapDbRowToProduct,
-  mapDbRowToTransaction,
-  mapProductToDbRow,
-  mapTransactionToDbRow,
-  resetSupabaseClient,
-  subscribeToLiveSync,
-} from '../services/supabase';
-import { pollPackets, publishState } from '../services/liveRelay';
+  createInventoryWriter,
+  parseStoredInventory,
+  readAll,
+  removeValue,
+  setValue,
+  setValues,
+  STORAGE_KEYS,
+} from '../services/storage';
+import { BackupFile, buildBackup } from '../services/backup';
+import { SyncMode, useSyncEngine } from '../sync/useSyncEngine';
+import { CurrencyCode, getCurrency, isCurrencyCode, setCurrency as setCurrencyModule } from '../logic/money';
 import {
   activeProducts,
   availableMonths as buildAvailableMonths,
@@ -47,27 +42,11 @@ import {
   normalizeState,
   parsePairingPayload,
   recomputeQuantities,
-  sameContent,
   sortTransactions,
   syncCodeFromBytes,
 } from '../logic/inventoryLogic';
 
-const STORAGE_KEYS = {
-  PRODUCTS: '@stockqr_products_v4_mobile_only',
-  TRANSACTIONS: '@stockqr_transactions_v4_mobile_only',
-  ROLE: '@stockqr_role_v4_mobile_only',
-  /** Legacy plain-text PIN (migrated to OWNER_PIN_HASH on first launch) */
-  OWNER_PIN: '@stockqr_owner_pin_v4_mobile_only',
-  OWNER_PIN_HASH: '@stockqr_owner_pin_hash_v5',
-  PIN_IS_DEFAULT: '@stockqr_pin_is_default_v5',
-  CLOUD_CONFIG: '@stockqr_cloud_config_v4_mobile_only',
-  CLIENT_DEMO_LOCK: '@stockqr_client_demo_lock_v4',
-  DEMO_ACTIONS: '@stockqr_demo_actions_v5',
-  DEVICE_ID: '@stockqr_device_id_v5',
-  SYNC_CODE: '@stockqr_sync_code_v5',
-  RELAY_LAST_ID: '@stockqr_relay_last_id_v5',
-  IS_SAMPLE_DATA: '@stockqr_is_sample_data_v5',
-};
+export type { SyncMode } from '../sync/useSyncEngine';
 
 // Replaced automatically by CI when building the locked Client Demo APK
 export const DEFAULT_CLIENT_DEMO_LOCKED = false;
@@ -77,8 +56,6 @@ const DEFAULT_PIN = '1234';
 const DEMO_ACTION_LIMIT = 3;
 const MAX_PIN_ATTEMPTS = 5;
 const PIN_LOCKOUT_MS = 30_000;
-const RELAY_POLL_MS = 5_000;
-const SYNC_DEBOUNCE_MS = 900;
 const UPDATE_MANIFEST_URLS = [
   'https://raw.githubusercontent.com/rickmaity07-maker/stock-qr-inventory-app/main/docs/live-update.json',
   'https://rickmaity07-maker.github.io/stock-qr-inventory-app/live-update.json',
@@ -104,7 +81,6 @@ export type ProductEdits = Partial<
   >
 >;
 
-export type SyncMode = 'supabase' | 'relay' | 'off';
 export type PinResult = 'ok' | 'wrong' | 'locked';
 
 export interface AppUpdateInfo {
@@ -115,7 +91,7 @@ export interface AppUpdateInfo {
   apkUrl: string | null;
 }
 
-interface InventoryContextValue {
+export interface InventoryContextValue {
   isReady: boolean;
   /** Products that are not deleted */
   products: Product[];
@@ -124,6 +100,7 @@ interface InventoryContextValue {
   scannerMode: ScannerMode;
   pinIsDefault: boolean;
   pinLockedUntil: number;
+  currency: CurrencyCode;
   cloudConfig: CloudConfig;
   syncMode: SyncMode;
   syncCode: string;
@@ -143,6 +120,7 @@ interface InventoryContextValue {
   switchToStaffRole: () => Promise<void>;
   unlockOwnerRole: (pin: string) => Promise<PinResult>;
   updateOwnerPin: (newPin: string) => Promise<void>;
+  setCurrency: (code: CurrencyCode) => Promise<void>;
   addProduct: (input: AddProductInput) => Promise<Product>;
   updateProduct: (id: string, updates: ProductEdits) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
@@ -169,13 +147,18 @@ interface InventoryContextValue {
   createNewSyncCode: () => Promise<void>;
   resetToDemoData: () => Promise<void>;
   startFreshStore: () => Promise<void>;
+  makeBackup: () => BackupFile;
+  restoreBackup: (backup: BackupFile) => Promise<{ products: number; transactions: number }>;
   checkForAppUpdate: () => Promise<AppUpdateInfo>;
 }
 
 const InventoryContext = createContext<InventoryContextValue | undefined>(undefined);
 
 export class InventoryError extends Error {
-  constructor(public code: 'NOT_FOUND' | 'INSUFFICIENT_STOCK' | 'BARCODE_IN_USE' | 'INVALID', message: string) {
+  constructor(
+    public code: 'NOT_FOUND' | 'INSUFFICIENT_STOCK' | 'BARCODE_IN_USE' | 'INVALID',
+    message: string
+  ) {
     super(message);
   }
 }
@@ -199,10 +182,11 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [role, setRole] = useState<UserRole>('OWNER');
   const [scannerMode, setScannerMode] = useState<ScannerMode>('SELL');
-  const [pinHash, setPinHash] = useState<string>('');
+  const [pinHash, setPinHash] = useState('');
   const [pinIsDefault, setPinIsDefault] = useState(true);
   const [pinLockedUntil, setPinLockedUntil] = useState(0);
   const failedPinAttempts = useRef(0);
+  const [currency, setCurrencyState] = useState<CurrencyCode>(getCurrency());
   const [cloudConfig, setCloudConfig] = useState<CloudConfig>({
     supabaseUrl: '',
     supabaseAnonKey: '',
@@ -211,97 +195,89 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [syncCode, setSyncCode] = useState('');
   const deviceIdRef = useRef('');
   const relayLastIdRef = useRef<string | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
-  const [lastSyncError, setLastSyncError] = useState<string | null>(null);
   const [isSampleData, setIsSampleData] = useState(false);
   const [isClientDemoLocked, setIsClientDemoLocked] = useState(DEFAULT_CLIENT_DEMO_LOCKED);
   const [demoActionsRemaining, setDemoActionsRemaining] = useState(DEMO_ACTION_LIMIT);
 
-  // ---- persistence -------------------------------------------------------
+  // ---- the single write path ----------------------------------------------
 
-  const writeQueue = useRef<Promise<void>>(Promise.resolve());
-
-  const persist = useCallback((next: InventoryState) => {
-    writeQueue.current = writeQueue.current
-      .then(() =>
-        AsyncStorage.multiSet([
-          [STORAGE_KEYS.PRODUCTS, JSON.stringify(next.products)],
-          [STORAGE_KEYS.TRANSACTIONS, JSON.stringify(next.transactions)],
-        ])
-      )
-      .catch((err) => console.warn('Could not save inventory:', err));
-    return writeQueue.current;
-  }, []);
-
+  const writeInventory = useMemo(() => createInventoryWriter(), []);
   const scheduleSyncRef = useRef<() => void>(() => {});
 
-  /** The only way inventory state changes: updates memory, screen and storage together. */
+  /** Updates memory, screen and storage together; then schedules a sync. */
   const commit = useCallback(
     (next: InventoryState, opts: { sync?: boolean } = {}) => {
       stateRef.current = next;
       setState(next);
-      const saved = persist(next);
+      const saved = writeInventory(next);
       if (opts.sync !== false) scheduleSyncRef.current();
       return saved;
     },
-    [persist]
+    [writeInventory]
   );
 
-  // ---- load on launch ----------------------------------------------------
+  const sync = useSyncEngine({
+    isReady,
+    cloudConfig,
+    syncCode,
+    deviceId: deviceIdRef,
+    relayLastId: relayLastIdRef,
+    stateRef,
+    commit,
+  });
+  scheduleSyncRef.current = sync.scheduleSync;
+
+  // ---- load on launch -------------------------------------------------------
 
   useEffect(() => {
     (async () => {
       try {
-        const entries = Object.fromEntries(
-          await AsyncStorage.multiGet(Object.values(STORAGE_KEYS))
-        ) as Record<string, string | null>;
+        const values = await readAll();
+        const stored = parseStoredInventory(values);
 
-        let loaded: InventoryState | null = null;
-        try {
-          const prods = JSON.parse(entries[STORAGE_KEYS.PRODUCTS] || 'null');
-          const txs = JSON.parse(entries[STORAGE_KEYS.TRANSACTIONS] || '[]');
-          if (Array.isArray(prods)) {
-            loaded = normalizeState({ products: prods, transactions: Array.isArray(txs) ? txs : [] });
-          }
-        } catch (err) {
-          console.warn('Saved inventory was unreadable:', err);
-        }
-
-        if (loaded) {
+        if (stored) {
+          const loaded = normalizeState(stored);
           stateRef.current = loaded;
           setState(loaded);
-          setIsSampleData(entries[STORAGE_KEYS.IS_SAMPLE_DATA] === 'true');
-          await persist(loaded); // stores the migrated shape (opening quantities)
+          setIsSampleData(values[STORAGE_KEYS.IS_SAMPLE_DATA] === 'true');
+          await writeInventory(loaded); // saves the migrated shape (opening quantities)
         } else {
           const sample = sampleState();
           stateRef.current = sample;
           setState(sample);
           setIsSampleData(true);
-          await persist(sample);
-          await AsyncStorage.setItem(STORAGE_KEYS.IS_SAMPLE_DATA, 'true');
+          await writeInventory(sample);
+          await setValue(STORAGE_KEYS.IS_SAMPLE_DATA, 'true');
         }
 
-        const savedRole = entries[STORAGE_KEYS.ROLE];
+        const savedRole = values[STORAGE_KEYS.ROLE];
         if (savedRole === 'OWNER' || savedRole === 'STAFF') setRole(savedRole);
 
         // PIN: migrate the old plain-text PIN to a hash
-        let hash = entries[STORAGE_KEYS.OWNER_PIN_HASH];
+        let hash = values[STORAGE_KEYS.OWNER_PIN_HASH];
         if (!hash) {
-          const legacy = entries[STORAGE_KEYS.OWNER_PIN] || DEFAULT_PIN;
+          const legacy = values[STORAGE_KEYS.OWNER_PIN] || DEFAULT_PIN;
           hash = await hashPin(legacy);
-          await AsyncStorage.setItem(STORAGE_KEYS.OWNER_PIN_HASH, hash);
-          await AsyncStorage.setItem(STORAGE_KEYS.PIN_IS_DEFAULT, String(legacy === DEFAULT_PIN));
-          await AsyncStorage.removeItem(STORAGE_KEYS.OWNER_PIN);
+          await setValues([
+            [STORAGE_KEYS.OWNER_PIN_HASH, hash],
+            [STORAGE_KEYS.PIN_IS_DEFAULT, String(legacy === DEFAULT_PIN)],
+          ]);
+          await removeValue(STORAGE_KEYS.OWNER_PIN);
           setPinIsDefault(legacy === DEFAULT_PIN);
         } else {
-          setPinIsDefault(entries[STORAGE_KEYS.PIN_IS_DEFAULT] !== 'false');
+          setPinIsDefault(values[STORAGE_KEYS.PIN_IS_DEFAULT] !== 'false');
         }
         setPinHash(hash);
 
-        if (entries[STORAGE_KEYS.CLOUD_CONFIG]) {
+        const cur = values[STORAGE_KEYS.CURRENCY];
+        if (isCurrencyCode(cur)) {
+          setCurrencyModule(cur);
+          setCurrencyState(cur);
+        }
+
+        if (values[STORAGE_KEYS.CLOUD_CONFIG]) {
           try {
-            const cfg = JSON.parse(entries[STORAGE_KEYS.CLOUD_CONFIG] as string);
+            const cfg = JSON.parse(values[STORAGE_KEYS.CLOUD_CONFIG] as string);
             setCloudConfig({
               supabaseUrl: String(cfg.supabaseUrl || ''),
               supabaseAnonKey: String(cfg.supabaseAnonKey || ''),
@@ -312,29 +288,30 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           }
         }
 
-        let deviceId = entries[STORAGE_KEYS.DEVICE_ID];
+        let deviceId = values[STORAGE_KEYS.DEVICE_ID];
         if (!deviceId) {
           deviceId = `dev-${newSyncCode().slice(0, 12)}`;
-          await AsyncStorage.setItem(STORAGE_KEYS.DEVICE_ID, deviceId);
+          await setValue(STORAGE_KEYS.DEVICE_ID, deviceId);
         }
         deviceIdRef.current = deviceId;
 
-        let code = entries[STORAGE_KEYS.SYNC_CODE];
+        let code = values[STORAGE_KEYS.SYNC_CODE];
         if (!code) {
           code = newSyncCode();
-          await AsyncStorage.setItem(STORAGE_KEYS.SYNC_CODE, code);
+          await setValue(STORAGE_KEYS.SYNC_CODE, code);
         }
         setSyncCode(code);
-        relayLastIdRef.current = entries[STORAGE_KEYS.RELAY_LAST_ID] || null;
+        relayLastIdRef.current = values[STORAGE_KEYS.RELAY_LAST_ID] || null;
 
-        if (entries[STORAGE_KEYS.CLIENT_DEMO_LOCK] !== null) {
-          setIsClientDemoLocked(entries[STORAGE_KEYS.CLIENT_DEMO_LOCK] === 'true');
+        if (values[STORAGE_KEYS.CLIENT_DEMO_LOCK] !== null) {
+          setIsClientDemoLocked(values[STORAGE_KEYS.CLIENT_DEMO_LOCK] === 'true');
         }
-        const savedDemo = Number(entries[STORAGE_KEYS.DEMO_ACTIONS]);
-        if (entries[STORAGE_KEYS.DEMO_ACTIONS] !== null && Number.isFinite(savedDemo)) {
+        const savedDemo = Number(values[STORAGE_KEYS.DEMO_ACTIONS]);
+        if (values[STORAGE_KEYS.DEMO_ACTIONS] !== null && Number.isFinite(savedDemo)) {
           setDemoActionsRemaining(Math.max(0, Math.min(DEMO_ACTION_LIMIT, savedDemo)));
         }
       } catch (err) {
+        // Storage unreadable: run on sample data in memory only. Never overwrite what is stored.
         console.warn('Failed to load offline inventory state:', err);
         const sample = sampleState();
         stateRef.current = sample;
@@ -343,15 +320,15 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setIsReady(true);
       }
     })();
-  }, [persist]);
+  }, [writeInventory]);
 
-  // ---- client demo lock --------------------------------------------------
+  // ---- client demo lock ---------------------------------------------------------
 
   const enableClientDemoLock = useCallback(async () => {
     setIsClientDemoLocked(true);
     setDemoActionsRemaining(DEMO_ACTION_LIMIT);
     setRole('STAFF');
-    await AsyncStorage.multiSet([
+    await setValues([
       [STORAGE_KEYS.CLIENT_DEMO_LOCK, 'true'],
       [STORAGE_KEYS.DEMO_ACTIONS, String(DEMO_ACTION_LIMIT)],
       [STORAGE_KEYS.ROLE, 'STAFF'],
@@ -365,7 +342,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (!ok) return false;
       setIsClientDemoLocked(false);
       setRole('OWNER');
-      await AsyncStorage.multiSet([
+      await setValues([
         [STORAGE_KEYS.CLIENT_DEMO_LOCK, 'false'],
         [STORAGE_KEYS.ROLE, 'OWNER'],
       ]);
@@ -383,15 +360,15 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const next = demoRemainingRef.current - 1;
     demoRemainingRef.current = next;
     setDemoActionsRemaining(next);
-    AsyncStorage.setItem(STORAGE_KEYS.DEMO_ACTIONS, String(next)).catch(() => {});
+    setValue(STORAGE_KEYS.DEMO_ACTIONS, String(next)).catch(() => {});
     return true;
   }, [isClientDemoLocked]);
 
-  // ---- roles & PIN -------------------------------------------------------
+  // ---- roles, PIN, currency -------------------------------------------------------
 
   const switchToStaffRole = useCallback(async () => {
     setRole('STAFF');
-    await AsyncStorage.setItem(STORAGE_KEYS.ROLE, 'STAFF');
+    await setValue(STORAGE_KEYS.ROLE, 'STAFF');
   }, []);
 
   const unlockOwnerRole = useCallback(
@@ -400,7 +377,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if ((await hashPin(pin)) === pinHash) {
         failedPinAttempts.current = 0;
         setRole('OWNER');
-        await AsyncStorage.setItem(STORAGE_KEYS.ROLE, 'OWNER');
+        await setValue(STORAGE_KEYS.ROLE, 'OWNER');
         return 'ok';
       }
       failedPinAttempts.current += 1;
@@ -420,18 +397,35 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const hash = await hashPin(clean);
     setPinHash(hash);
     setPinIsDefault(clean === DEFAULT_PIN);
-    await AsyncStorage.multiSet([
+    await setValues([
       [STORAGE_KEYS.OWNER_PIN_HASH, hash],
       [STORAGE_KEYS.PIN_IS_DEFAULT, String(clean === DEFAULT_PIN)],
     ]);
   }, []);
 
-  // ---- product & stock changes ------------------------------------------
+  const setCurrency = useCallback(async (code: CurrencyCode) => {
+    setCurrencyModule(code);
+    setCurrencyState(code);
+    await setValue(STORAGE_KEYS.CURRENCY, code);
+  }, []);
+
+  // ---- products & stock --------------------------------------------------------
 
   const getProduct = useCallback(
     (id: string) => stateRef.current.products.find((p) => p.id === id && !p.deleted),
-    []
+    // re-create when state changes so screens re-read fresh data
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state]
   );
+
+  const assertBarcodeFree = (products: Product[], barcode: string, exceptId?: string) => {
+    const code = barcode.trim().toUpperCase();
+    if (!code) return;
+    const clash = activeProducts(products).find(
+      (p) => p.id !== exceptId && (p.factoryBarcode?.toUpperCase() === code || p.qrCode.toUpperCase() === code)
+    );
+    if (clash) throw new InventoryError('BARCODE_IN_USE', `That code is already used by ${clash.name}.`);
+  };
 
   const addProduct = useCallback(
     async (input: AddProductInput): Promise<Product> => {
@@ -439,21 +433,13 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const name = input.name.trim();
       if (!name) throw new InventoryError('INVALID', 'Product name is required.');
       const barcode = input.factoryBarcode?.trim() || undefined;
-      if (barcode) {
-        const clash = activeProducts(cur.products).find(
-          (p) => p.factoryBarcode?.toUpperCase() === barcode.toUpperCase()
-        );
-        if (clash) throw new InventoryError('BARCODE_IN_USE', `Barcode is already linked to ${clash.name}.`);
-      }
+      if (barcode) assertBarcodeFree(cur.products, barcode);
       const opening = Math.max(0, Math.floor(Number(input.quantity) || 0));
       const product: Product = {
         id: newId('prod'),
         name,
         category: input.category.trim() || 'General',
-        qrCode: generateUniqueQrCode(
-          name,
-          cur.products.map((p) => p.qrCode)
-        ),
+        qrCode: generateUniqueQrCode(name, cur.products.map((p) => p.qrCode)),
         factoryBarcode: barcode,
         buyingPrice: Math.max(0, Number(input.buyingPrice) || 0),
         sellingPrice: Math.max(0, Number(input.sellingPrice) || 0),
@@ -477,14 +463,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (!target) throw new InventoryError('NOT_FOUND', 'Product not found.');
       const { quantity: wantedQty, ...fields } = updates;
       const now = new Date().toISOString();
-
-      if (fields.factoryBarcode) {
-        const code = fields.factoryBarcode.trim().toUpperCase();
-        const clash = activeProducts(cur.products).find(
-          (p) => p.id !== id && p.factoryBarcode?.toUpperCase() === code
-        );
-        if (clash) throw new InventoryError('BARCODE_IN_USE', `Barcode is already linked to ${clash.name}.`);
-      }
+      if (fields.factoryBarcode) assertBarcodeFree(cur.products, fields.factoryBarcode, id);
 
       let transactions = cur.transactions;
       // A changed stock count becomes a correction entry, so every phone agrees on it.
@@ -531,24 +510,19 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     async (id: string) => {
       const cur = stateRef.current;
       const now = new Date().toISOString();
-      const products = cur.products.map((p) =>
-        p.id === id ? { ...p, deleted: true, updatedAt: now, synced: false } : p
-      );
+      const products = cur.products.map((p) => (p.id === id ? { ...p, deleted: true, updatedAt: now, synced: false } : p));
       await commit({ products, transactions: cur.transactions });
     },
     [commit]
   );
 
   const linkFactoryBarcode = useCallback(
-    async (productId: string, barcode: string) => {
-      await updateProduct(productId, { factoryBarcode: barcode.trim() });
-    },
+    (productId: string, barcode: string) => updateProduct(productId, { factoryBarcode: barcode.trim() }),
     [updateProduct]
   );
 
   const findProductByCode = useCallback(
     (scannedCode: string) => findByCode(stateRef.current.products, scannedCode),
-    // state in deps so screens re-render with fresh results
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state]
   );
@@ -560,10 +534,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (!target) throw new InventoryError('NOT_FOUND', 'Product not found.');
       const sellQty = Math.max(1, Math.floor(quantity));
       if (sellQty > target.quantity) {
-        throw new InventoryError(
-          'INSUFFICIENT_STOCK',
-          `Only ${Math.max(0, target.quantity)} of ${target.name} in stock.`
-        );
+        throw new InventoryError('INSUFFICIENT_STOCK', `Only ${Math.max(0, target.quantity)} of ${target.name} in stock.`);
       }
       const tx: StockTransaction = {
         id: newId('tx'),
@@ -588,19 +559,12 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 
   const recordRestock = useCallback(
-    async (
-      productId: string,
-      quantity: number,
-      newBuyingPrice: number,
-      expiryDate?: string,
-      notes?: string
-    ) => {
+    async (productId: string, quantity: number, newBuyingPrice: number, expiryDate?: string, notes?: string) => {
       const cur = stateRef.current;
       const target = cur.products.find((p) => p.id === productId && !p.deleted);
       if (!target) throw new InventoryError('NOT_FOUND', 'Product not found.');
       const addQty = Math.max(1, Math.floor(quantity));
-      const buyPrice =
-        Number.isFinite(newBuyingPrice) && newBuyingPrice >= 0 ? newBuyingPrice : target.buyingPrice;
+      const buyPrice = Number.isFinite(newBuyingPrice) && newBuyingPrice >= 0 ? newBuyingPrice : target.buyingPrice;
       const now = new Date().toISOString();
       const tx: StockTransaction = {
         id: newId('tx'),
@@ -616,18 +580,12 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         synced: false,
       };
       const transactions = [tx, ...cur.transactions];
-      const changedDetails =
-        buyPrice !== target.buyingPrice || (expiryDate?.trim() && expiryDate.trim() !== target.expiryDate);
+      const newExpiry = expiryDate?.trim();
+      const changedDetails = buyPrice !== target.buyingPrice || (newExpiry && newExpiry !== target.expiryDate);
       const products = recomputeQuantities(
         cur.products.map((p) =>
           p.id === productId && changedDetails
-            ? {
-                ...p,
-                buyingPrice: buyPrice,
-                expiryDate: expiryDate?.trim() || p.expiryDate,
-                updatedAt: now,
-                synced: false,
-              }
+            ? { ...p, buyingPrice: buyPrice, expiryDate: newExpiry || p.expiryDate, updatedAt: now, synced: false }
             : p
         ),
         transactions
@@ -638,188 +596,16 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     [commit, role]
   );
 
-  // ---- sync --------------------------------------------------------------
-
-  const syncMode: SyncMode =
-    cloudConfig.supabaseUrl && cloudConfig.supabaseAnonKey
-      ? 'supabase'
-      : cloudConfig.autoSyncEnabled && syncCode
-      ? 'relay'
-      : 'off';
-
-  const syncingRef = useRef(false);
-  const syncAgainRef = useRef(false);
-
-  /** Marks the records we just uploaded as synced, unless they changed again meanwhile. */
-  const markUploaded = useCallback((uploaded: InventoryState, base: InventoryState): InventoryState => {
-    const prodVersions = new Map(uploaded.products.map((p) => [p.id, p.updatedAt]));
-    const txIds = new Set(uploaded.transactions.map((t) => t.id));
-    return {
-      products: base.products.map((p) =>
-        !p.synced && prodVersions.get(p.id) === p.updatedAt ? { ...p, synced: true } : p
-      ),
-      transactions: base.transactions.map((t) => (!t.synced && txIds.has(t.id) ? { ...t, synced: true } : t)),
-    };
-  }, []);
-
-  const runSupabaseSync = useCallback(async () => {
-    const client = getSupabaseClient(cloudConfig.supabaseUrl, cloudConfig.supabaseAnonKey);
-    if (!client) throw new Error('Supabase URL must start with https:// and the key must be filled in.');
-    const snapshot = stateRef.current;
-    const upProds = snapshot.products.filter((p) => !p.synced);
-    const upTxs = snapshot.transactions.filter((t) => !t.synced);
-    if (upProds.length) {
-      const { error } = await client.from('products').upsert(upProds.map(mapProductToDbRow));
-      if (error) throw error;
-    }
-    if (upTxs.length) {
-      const { error } = await client.from('transactions').upsert(upTxs.map(mapTransactionToDbRow));
-      if (error) throw error;
-    }
-    const [prodRows, txRows] = await Promise.all([
-      fetchAllRows(client, 'products', 'updated_at'),
-      fetchAllRows(client, 'transactions', 'timestamp'),
-    ]);
-    const remote: InventoryState = {
-      products: prodRows.map(mapDbRowToProduct),
-      transactions: txRows.map(mapDbRowToTransaction),
-    };
-    const latest = markUploaded({ products: upProds, transactions: upTxs }, stateRef.current);
-    const merged = mergeStates(latest, remote);
-    if (!sameContent(merged, stateRef.current) || upProds.length || upTxs.length) {
-      await commit(merged, { sync: false });
-    }
-  }, [cloudConfig.supabaseUrl, cloudConfig.supabaseAnonKey, commit, markUploaded]);
-
-  const runRelayPublish = useCallback(async () => {
-    const snapshot = stateRef.current;
-    const ok = await publishState(syncCode, deviceIdRef.current, snapshot);
-    if (!ok) throw new Error('Offline — changes are saved on this phone and will sync when you are back online.');
-    await commit(markUploaded(snapshot, stateRef.current), { sync: false });
-  }, [syncCode, commit, markUploaded]);
-
-  const syncWithCloud = useCallback(async (): Promise<{ ok: boolean; message: string }> => {
-    if (syncMode === 'off') {
-      return { ok: false, message: 'Sync is turned off. Changes are saved on this phone only.' };
-    }
-    if (syncingRef.current) {
-      syncAgainRef.current = true;
-      return { ok: true, message: 'Sync already running.' };
-    }
-    syncingRef.current = true;
-    setIsSyncing(true);
-    try {
-      do {
-        syncAgainRef.current = false;
-        if (syncMode === 'supabase') await runSupabaseSync();
-        else await runRelayPublish();
-      } while (syncAgainRef.current);
-      setLastSyncedAt(new Date().toISOString());
-      setLastSyncError(null);
-      return {
-        ok: true,
-        message:
-          syncMode === 'supabase'
-            ? 'Synced with your Supabase database.'
-            : 'Synced with every phone paired to this store.',
-      };
-    } catch (err: any) {
-      const message = syncMode === 'supabase' ? explainSupabaseError(err) : String(err?.message || err);
-      setLastSyncError(message);
-      return { ok: false, message };
-    } finally {
-      syncingRef.current = false;
-      setIsSyncing(false);
-    }
-  }, [syncMode, runSupabaseSync, runRelayPublish]);
-
-  const syncRef = useRef(syncWithCloud);
-  syncRef.current = syncWithCloud;
-
-  // Debounced sync after every local change
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  scheduleSyncRef.current = () => {
-    if (!cloudConfig.autoSyncEnabled || syncMode === 'off') return;
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
-      syncRef.current();
-    }, SYNC_DEBOUNCE_MS);
-  };
-
-  // Track whether the app is in the foreground (no polling in the background)
-  const [appActive, setAppActive] = useState(AppState.currentState !== 'background');
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (s) => setAppActive(s === 'active'));
-    return () => sub.remove();
-  }, []);
-
-  // Relay: share our state on launch / resume, then poll for other phones' changes
-  useEffect(() => {
-    if (!isReady || syncMode !== 'relay' || !appActive) return;
-    let cancelled = false;
-    let polling = false;
-
-    const poll = async () => {
-      if (polling || cancelled) return;
-      polling = true;
-      try {
-        const { packets, lastId } = await pollPackets(syncCode, deviceIdRef.current, relayLastIdRef.current);
-        if (cancelled) return;
-        if (lastId && lastId !== relayLastIdRef.current) {
-          relayLastIdRef.current = lastId;
-          AsyncStorage.setItem(STORAGE_KEYS.RELAY_LAST_ID, lastId).catch(() => {});
-        }
-        if (packets.length) {
-          const merged = packets.reduce<InventoryState>(
-            (acc, pkt) => mergeStates(acc, { products: pkt.products, transactions: pkt.transactions }),
-            stateRef.current
-          );
-          if (!sameContent(merged, stateRef.current)) await commit(merged, { sync: false });
-          setLastSyncedAt(new Date().toISOString());
-        }
-        setLastSyncError(null);
-      } catch {
-        // offline: try again next tick
-      } finally {
-        polling = false;
-      }
-    };
-
-    syncRef.current();
-    poll();
-    const timer = setInterval(poll, RELAY_POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [isReady, syncMode, syncCode, appActive, commit]);
-
-  // Supabase: sync on launch and whenever another device changes a row
-  useEffect(() => {
-    if (!isReady || syncMode !== 'supabase' || !cloudConfig.autoSyncEnabled) return;
-    const client = getSupabaseClient(cloudConfig.supabaseUrl, cloudConfig.supabaseAnonKey);
-    if (!client) return;
-    syncRef.current();
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const unsubscribe = subscribeToLiveSync(client, () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => syncRef.current(), 600);
-    });
-    return () => {
-      if (timer) clearTimeout(timer);
-      unsubscribe();
-    };
-  }, [isReady, syncMode, cloudConfig.supabaseUrl, cloudConfig.supabaseAnonKey, cloudConfig.autoSyncEnabled]);
+  // ---- pairing & cloud ---------------------------------------------------------------
 
   const joinStoreSync = useCallback(
     async (codeOrPayload: string) => {
       const code = parsePairingPayload(codeOrPayload);
       if (!code) return { ok: false, message: 'That is not a valid store sync code.' };
       if (code === syncCode) return { ok: true, message: 'This phone is already paired with that store.' };
-      relayLastIdRef.current = null;
+      await sync.resetRelayCursor();
       setSyncCode(code);
-      await AsyncStorage.multiSet([[STORAGE_KEYS.SYNC_CODE, code]]);
-      await AsyncStorage.removeItem(STORAGE_KEYS.RELAY_LAST_ID);
+      await setValue(STORAGE_KEYS.SYNC_CODE, code);
       // Everything on this phone gets shared with the store on the next sync
       const cur = stateRef.current;
       await commit(
@@ -832,20 +618,19 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (!cloudConfig.autoSyncEnabled) {
         const cfg = { ...cloudConfig, autoSyncEnabled: true };
         setCloudConfig(cfg);
-        await AsyncStorage.setItem(STORAGE_KEYS.CLOUD_CONFIG, JSON.stringify(cfg));
+        await setValue(STORAGE_KEYS.CLOUD_CONFIG, JSON.stringify(cfg));
       }
       return { ok: true, message: 'Paired. This phone now shares stock and sales with the store.' };
     },
-    [syncCode, cloudConfig, commit]
+    [syncCode, cloudConfig, commit, sync]
   );
 
   const createNewSyncCode = useCallback(async () => {
     const code = newSyncCode();
-    relayLastIdRef.current = null;
+    await sync.resetRelayCursor();
     setSyncCode(code);
-    await AsyncStorage.setItem(STORAGE_KEYS.SYNC_CODE, code);
-    await AsyncStorage.removeItem(STORAGE_KEYS.RELAY_LAST_ID);
-  }, []);
+    await setValue(STORAGE_KEYS.SYNC_CODE, code);
+  }, [sync]);
 
   const updateCloudConfig = useCallback(async (config: CloudConfig) => {
     resetSupabaseClient();
@@ -855,26 +640,48 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       autoSyncEnabled: config.autoSyncEnabled,
     };
     setCloudConfig(clean);
-    await AsyncStorage.setItem(STORAGE_KEYS.CLOUD_CONFIG, JSON.stringify(clean));
+    await setValue(STORAGE_KEYS.CLOUD_CONFIG, JSON.stringify(clean));
   }, []);
 
-  // ---- data resets -------------------------------------------------------
+  // ---- data management ----------------------------------------------------------------
 
   const resetToDemoData = useCallback(async () => {
     await commit(sampleState(), { sync: false });
     setIsSampleData(true);
-    await AsyncStorage.setItem(STORAGE_KEYS.IS_SAMPLE_DATA, 'true');
+    await setValue(STORAGE_KEYS.IS_SAMPLE_DATA, 'true');
   }, [commit]);
 
   /** Clears the sample catalogue and starts an empty store with its own new sync code. */
   const startFreshStore = useCallback(async () => {
     await commit({ products: [], transactions: [] }, { sync: false });
     setIsSampleData(false);
-    await AsyncStorage.setItem(STORAGE_KEYS.IS_SAMPLE_DATA, 'false');
+    await setValue(STORAGE_KEYS.IS_SAMPLE_DATA, 'false');
     await createNewSyncCode();
   }, [commit, createNewSyncCode]);
 
-  // ---- app updates -------------------------------------------------------
+  const makeBackup = useCallback(() => buildBackup(stateRef.current, APP_VERSION, getCurrency()), []);
+
+  const restoreBackup = useCallback(
+    async (backup: BackupFile) => {
+      const incoming = normalizeState({ products: backup.products, transactions: backup.transactions });
+      const merged = mergeStates(stateRef.current, incoming);
+      // mark restored records as not yet shared so paired phones receive them
+      const localIds = new Set(stateRef.current.transactions.map((t) => t.id));
+      const next: InventoryState = {
+        products: merged.products.map((p) => ({ ...p, synced: false })),
+        transactions: merged.transactions.map((t) => (localIds.has(t.id) ? t : { ...t, synced: false })),
+      };
+      await commit(next);
+      if (isSampleData && incoming.products.length) {
+        setIsSampleData(false);
+        await setValue(STORAGE_KEYS.IS_SAMPLE_DATA, 'false');
+      }
+      return { products: incoming.products.length, transactions: incoming.transactions.length };
+    },
+    [commit, isSampleData]
+  );
+
+  // ---- app updates --------------------------------------------------------------------
 
   const checkForAppUpdate = useCallback(async (): Promise<AppUpdateInfo> => {
     let lastError: unknown = null;
@@ -902,15 +709,13 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     throw lastError instanceof Error ? lastError : new Error('Could not reach the update server.');
   }, []);
 
-  // ---- derived values ----------------------------------------------------
+  // ---- derived values ----------------------------------------------------------------
 
   const visibleProducts = useMemo(() => activeProducts(state.products), [state.products]);
-
   const lowStockProducts = useMemo(
     () => visibleProducts.filter(isLowStock).sort((a, b) => a.quantity - b.quantity),
     [visibleProducts]
   );
-
   const expiringProducts = useMemo(
     () =>
       visibleProducts
@@ -918,119 +723,71 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .sort((a, b) => (a.expiryDate || '').localeCompare(b.expiryDate || '')),
     [visibleProducts]
   );
-
   const unsyncedCount = useMemo(
-    () =>
-      state.products.filter((p) => !p.synced).length + state.transactions.filter((t) => !t.synced).length,
+    () => state.products.filter((p) => !p.synced).length + state.transactions.filter((t) => !t.synced).length,
     [state]
   );
-
   const availableMonths = useMemo(() => buildAvailableMonths(state.transactions), [state.transactions]);
-
   const getMonthlySummary = useCallback(
     (monthKey: string) => buildMonthlySummary(state.products, state.transactions, monthKey),
     [state]
   );
 
-  const value = useMemo<InventoryContextValue>(
-    () => ({
-      isReady,
-      products: visibleProducts,
-      transactions: state.transactions,
-      role,
-      scannerMode,
-      pinIsDefault,
-      pinLockedUntil,
-      cloudConfig,
-      syncMode,
-      syncCode,
-      isSyncing,
-      lastSyncedAt,
-      lastSyncError,
-      unsyncedCount,
-      lowStockProducts,
-      expiringProducts,
-      isSampleData,
-      isClientDemoLocked,
-      demoActionsRemaining,
-      consumeDemoAction,
-      enableClientDemoLock,
-      unlockClientDemo,
-      setScannerMode,
-      switchToStaffRole,
-      unlockOwnerRole,
-      updateOwnerPin,
-      addProduct,
-      updateProduct,
-      deleteProduct,
-      linkFactoryBarcode,
-      findProductByCode,
-      getProduct,
-      recordSale,
-      recordRestock,
-      getMonthlySummary,
-      availableMonths,
-      updateCloudConfig,
-      syncWithCloud,
-      joinStoreSync,
-      createNewSyncCode,
-      resetToDemoData,
-      startFreshStore,
-      checkForAppUpdate,
-    }),
-    [
-      isReady,
-      visibleProducts,
-      state.transactions,
-      role,
-      scannerMode,
-      pinIsDefault,
-      pinLockedUntil,
-      cloudConfig,
-      syncMode,
-      syncCode,
-      isSyncing,
-      lastSyncedAt,
-      lastSyncError,
-      unsyncedCount,
-      lowStockProducts,
-      expiringProducts,
-      isSampleData,
-      isClientDemoLocked,
-      demoActionsRemaining,
-      consumeDemoAction,
-      enableClientDemoLock,
-      unlockClientDemo,
-      switchToStaffRole,
-      unlockOwnerRole,
-      updateOwnerPin,
-      addProduct,
-      updateProduct,
-      deleteProduct,
-      linkFactoryBarcode,
-      findProductByCode,
-      getProduct,
-      recordSale,
-      recordRestock,
-      getMonthlySummary,
-      availableMonths,
-      updateCloudConfig,
-      syncWithCloud,
-      joinStoreSync,
-      createNewSyncCode,
-      resetToDemoData,
-      startFreshStore,
-      checkForAppUpdate,
-    ]
-  );
+  const value: InventoryContextValue = {
+    isReady,
+    products: visibleProducts,
+    transactions: state.transactions,
+    role,
+    scannerMode,
+    pinIsDefault,
+    pinLockedUntil,
+    currency,
+    cloudConfig,
+    syncMode: sync.syncMode,
+    syncCode,
+    isSyncing: sync.isSyncing,
+    lastSyncedAt: sync.lastSyncedAt,
+    lastSyncError: sync.lastSyncError,
+    unsyncedCount,
+    lowStockProducts,
+    expiringProducts,
+    isSampleData,
+    isClientDemoLocked,
+    demoActionsRemaining,
+    consumeDemoAction,
+    enableClientDemoLock,
+    unlockClientDemo,
+    setScannerMode,
+    switchToStaffRole,
+    unlockOwnerRole,
+    updateOwnerPin,
+    setCurrency,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    linkFactoryBarcode,
+    findProductByCode,
+    getProduct,
+    recordSale,
+    recordRestock,
+    getMonthlySummary,
+    availableMonths,
+    updateCloudConfig,
+    syncWithCloud: sync.syncNow,
+    joinStoreSync,
+    createNewSyncCode,
+    resetToDemoData,
+    startFreshStore,
+    makeBackup,
+    restoreBackup,
+    checkForAppUpdate,
+  };
 
   return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>;
 };
 
 export function useInventory(): InventoryContextValue {
   const ctx = useContext(InventoryContext);
-  if (!ctx) {
-    throw new Error('useInventory must be used within an InventoryProvider');
-  }
+  if (!ctx) throw new Error('useInventory must be used within an InventoryProvider');
   return ctx;
 }

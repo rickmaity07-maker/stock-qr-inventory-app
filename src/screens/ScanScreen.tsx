@@ -2,9 +2,10 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
-import { InventoryError, useInventory } from '../../src/context/InventoryContext';
-import { Product, ScannerMode } from '../../src/types/inventory';
-import { DesignerQrCode } from '../../src/components/DesignerQrCode';
+import { currencySymbol } from '../logic/money';
+import { InventoryError, useInventory } from '../context/InventoryContext';
+import { Product, ScannerMode } from '../types/inventory';
+import { DesignerQrCode } from '../components/DesignerQrCode';
 import {
   Badge,
   Button,
@@ -21,16 +22,16 @@ import {
   Stepper,
   Tap,
   haptic,
-} from '../../src/ui/components';
-import { SyncIndicator } from '../../src/ui/nav';
-import { showAlert } from '../../src/ui/dialog';
-import { formatMoney, radius, space, tabular, type, usePalette } from '../../src/ui/theme';
+} from '../ui/components';
+import { SyncIndicator } from '../ui/nav';
+import { showAlert } from '../ui/dialog';
+import { formatMoney, radius, space, tabular, type, usePalette } from '../ui/theme';
 import {
   isValidIsoDate,
   parseNonNegativeNumber,
   parsePairingPayload,
   PAIRING_PREFIX,
-} from '../../src/logic/inventoryLogic';
+} from '../logic/inventoryLogic';
 
 const MODES: { value: ScannerMode; label: string }[] = [
   { value: 'SELL', label: 'Sell' },
@@ -428,7 +429,7 @@ export default function ScannerScreen() {
                     onChangeText={setBuyPrice}
                     keyboardType="decimal-pad"
                     placeholder="0.00"
-                    suffix="£"
+                    suffix={currencySymbol()}
                     error={priceError}
                   />
                   <Field

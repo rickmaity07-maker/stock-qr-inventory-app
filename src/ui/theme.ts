@@ -135,7 +135,4 @@ export const tabular: TextStyle = { fontVariant: ['tabular-nums'] };
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 32 };
 export const radius = { sm: 8, md: 10, lg: 12, xl: 16, sheet: 14 };
 
-export function formatMoney(n: number): string {
-  const sign = n < 0 ? '−' : '';
-  return `${sign}£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+export { formatMoney } from '../logic/money';

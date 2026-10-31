@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useInventory } from '../../src/context/InventoryContext';
-import { exportMonthlyReportExcelCsv, exportMonthlyReportPdf } from '../../src/utils/printAndExport';
+import { currencySymbol } from '../logic/money';
+import { useInventory } from '../context/InventoryContext';
+import { exportMonthlyReportExcelCsv, exportMonthlyReportPdf } from '../utils/printAndExport';
 import {
   Button,
   EmptyState,
@@ -13,10 +14,10 @@ import {
   Section,
   StatTile,
   Tap,
-} from '../../src/ui/components';
-import { SyncIndicator } from '../../src/ui/nav';
-import { showAlert } from '../../src/ui/dialog';
-import { formatMoney, radius, space, tabular, type, usePalette } from '../../src/ui/theme';
+} from '../ui/components';
+import { SyncIndicator } from '../ui/nav';
+import { showAlert } from '../ui/dialog';
+import { formatMoney, radius, space, tabular, type, usePalette } from '../ui/theme';
 
 // Validated (dataviz validate_palette.js): CVD-safe pair, light and dark steps.
 const SERIES = {
@@ -26,7 +27,7 @@ const SERIES = {
 
 function shortMoney(n: number) {
   const abs = Math.abs(n);
-  const s = abs >= 1000 ? `£${(abs / 1000).toFixed(abs >= 10000 ? 0 : 1)}k` : `£${abs.toFixed(0)}`;
+  const s = abs >= 1000 ? `${currencySymbol()}${(abs / 1000).toFixed(abs >= 10000 ? 0 : 1)}k` : `${currencySymbol()}${abs.toFixed(0)}`;
   return n < 0 ? `−${s}` : s;
 }
 

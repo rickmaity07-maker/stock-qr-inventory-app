@@ -4,14 +4,15 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { InventoryProvider, useInventory } from './src/context/InventoryContext';
-import ScannerScreen from './app/(tabs)/index';
-import ProductsScreen from './app/(tabs)/products';
-import StockScreen from './app/(tabs)/stock';
-import DashboardScreen from './app/(tabs)/dashboard';
-import SettingsScreen from './app/(tabs)/settings';
+import ScannerScreen from './src/screens/ScanScreen';
+import ProductsScreen from './src/screens/ProductsScreen';
+import StockScreen from './src/screens/StockScreen';
+import DashboardScreen from './src/screens/ProfitScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 import { LoadingView, TabContext, TabKey } from './src/ui/nav';
 import { Field, Section, Sheet, haptic } from './src/ui/components';
 import { showAlert } from './src/ui/dialog';
+import { ErrorBoundary } from './src/ui/ErrorBoundary';
 import { space, type, usePalette } from './src/ui/theme';
 
 const TABS: { key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap; iconOn: keyof typeof Ionicons.glyphMap }[] = [
@@ -159,9 +160,11 @@ function MainShell() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <InventoryProvider>
-        <MainShell />
-      </InventoryProvider>
+      <ErrorBoundary>
+        <InventoryProvider>
+          <MainShell />
+        </InventoryProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { FlatList, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useInventory } from '../../src/context/InventoryContext';
-import { Product } from '../../src/types/inventory';
-import { printProductQrLabels } from '../../src/utils/printAndExport';
-import { DesignerQrCode } from '../../src/components/DesignerQrCode';
+import { currencySymbol } from '../logic/money';
+import { useInventory } from '../context/InventoryContext';
+import { Product } from '../types/inventory';
+import { printProductQrLabels } from '../utils/printAndExport';
+import { DesignerQrCode } from '../components/DesignerQrCode';
 import {
   Badge,
   Button,
@@ -13,16 +14,15 @@ import {
   LargeTitle,
   Notice,
   Row,
-  Screen,
   SearchField,
   Section,
   Sheet,
   Tap,
-} from '../../src/ui/components';
-import { SyncIndicator } from '../../src/ui/nav';
-import { confirmAction, showAlert } from '../../src/ui/dialog';
-import { formatMoney, radius, space, tabular, type, usePalette } from '../../src/ui/theme';
-import { isValidIsoDate, parseNonNegativeNumber, parseWholeNumber } from '../../src/logic/inventoryLogic';
+} from '../ui/components';
+import { SyncIndicator } from '../ui/nav';
+import { confirmAction, showAlert } from '../ui/dialog';
+import { formatMoney, radius, space, tabular, type, usePalette } from '../ui/theme';
+import { isValidIsoDate, parseNonNegativeNumber, parseWholeNumber } from '../logic/inventoryLogic';
 
 interface Draft {
   name: string;
@@ -188,8 +188,8 @@ export default function ProductsScreen() {
 
   const existingCategories = categories.filter((x) => x !== 'All');
 
-  return (
-    <Screen>
+  const listHeader = (
+    <View>
       <LargeTitle
         title="Products"
         subtitle={`${products.length} ${products.length === 1 ? 'product' : 'products'}`}
@@ -252,18 +252,40 @@ export default function ProductsScreen() {
         </ScrollView>
       ) : null}
 
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={products.length ? 'search' : 'pricetags-outline'}
-          title={products.length ? 'No matches' : 'No products yet'}
-          message={products.length ? 'Try another search or category.' : 'Add your first product to get its QR sticker.'}
-          action={!products.length && isOwner ? { label: 'Add product', onPress: openAdd } : undefined}
-        />
-      ) : (
-        <Section>
-          {filtered.map((p) => (
+    </View>
+  );
+
+  const last = filtered.length - 1;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: c.background }}>
+      <FlatList
+        data={filtered}
+        keyExtractor={(p) => p.id}
+        ListHeaderComponent={listHeader}
+        ListHeaderComponentStyle={{ marginBottom: space.xl }}
+        ListEmptyComponent={
+          <EmptyState
+            icon={products.length ? 'search' : 'pricetags-outline'}
+            title={products.length ? 'No matches' : 'No products yet'}
+            message={products.length ? 'Try another search or category.' : 'Add your first product to get its QR sticker.'}
+            action={!products.length && isOwner ? { label: 'Add product', onPress: openAdd } : undefined}
+          />
+        }
+        renderItem={({ item: p, index }) => (
+          <View
+            style={{
+              marginHorizontal: space.lg,
+              overflow: 'hidden',
+              backgroundColor: c.surface,
+              borderTopLeftRadius: index === 0 ? radius.md : 0,
+              borderTopRightRadius: index === 0 ? radius.md : 0,
+              borderBottomLeftRadius: index === last ? radius.md : 0,
+              borderBottomRightRadius: index === last ? radius.md : 0,
+            }}
+          >
+            {index > 0 ? <View style={{ height: 0.5, backgroundColor: c.separator, marginLeft: space.lg }} /> : null}
             <Row
-              key={p.id}
               title={p.name}
               subtitle={`${p.category} · ${formatMoney(p.sellingPrice)}`}
               onPress={() => setDetailId(p.id)}
@@ -276,9 +298,15 @@ export default function ProductsScreen() {
                 />
               }
             />
-          ))}
-        </Section>
-      )}
+          </View>
+        )}
+        contentContainerStyle={{ paddingBottom: space.xxl }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        initialNumToRender={16}
+        maxToRenderPerBatch={20}
+        windowSize={9}
+      />
 
       {/* Product detail */}
       <Sheet
@@ -357,8 +385,8 @@ export default function ProductsScreen() {
           </ScrollView>
         ) : null}
         <Section header="Prices">
-          <Field label="Selling price" value={draft.sellingPrice} onChangeText={set('sellingPrice')} keyboardType="decimal-pad" placeholder="0.00" suffix="£" error={err('sellingPrice')} />
-          <Field label="Buying price" value={draft.buyingPrice} onChangeText={set('buyingPrice')} keyboardType="decimal-pad" placeholder="0.00" suffix="£" error={err('buyingPrice')} />
+          <Field label="Selling price" value={draft.sellingPrice} onChangeText={set('sellingPrice')} keyboardType="decimal-pad" placeholder="0.00" suffix={currencySymbol()} error={err('sellingPrice')} />
+          <Field label="Buying price" value={draft.buyingPrice} onChangeText={set('buyingPrice')} keyboardType="decimal-pad" placeholder="0.00" suffix={currencySymbol()} error={err('buyingPrice')} />
         </Section>
         <Section
           header="Stock"
@@ -375,6 +403,6 @@ export default function ProductsScreen() {
           <Button title={editing?.id ? 'Save changes' : 'Add product and create QR'} onPress={save} loading={saving} />
         </View>
       </Sheet>
-    </Screen>
+    </View>
   );
 }
