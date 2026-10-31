@@ -9,7 +9,9 @@
     "web": "expo start --web",
     "test": "jest",
     "typecheck": "tsc --noEmit -p .",
-    "build:web": "node scripts/build-web.mjs"
+    "build:web": "node scripts/build-web.mjs",
+    "test:e2e": "playwright test",
+    "serve:web": "node scripts/serve-docs.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",
@@ -43,6 +45,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@playwright/test": "^1.49.1",
     "@testing-library/react-native": "^12.9.0",
     "@types/react": "~18.3.12",
     "react-test-renderer": "^18.3.1",

@@ -11,3 +11,7 @@ web-build/
 .env.local
 tests/live-window-proof.png
 tests/android-emulator-verified.png
+test-results/
+playwright-report/
+.playwright-mcp/
+.jest-cache/

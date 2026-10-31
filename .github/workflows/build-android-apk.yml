@@ -2,92 +2,99 @@ name: Build & Release Android APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
     paths-ignore:
       - 'docs/**'
+      - '**.md'
   workflow_dispatch:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   build-apk:
-    name: Build Standalone Android APK (Full + Client Demo)
+    name: Build APKs (full + client demo)
     runs-on: ubuntu-latest
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
-      - name: Setup Java 17 (Required for Android Gradle)
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
       - name: Install dependencies
-        run: |
-          npm install --legacy-peer-deps
-          npx expo install --fix || true
-          find node_modules -name "libs.versions.toml" -exec sed -i "s/1\.9\.24/1.9.25/g" {} + || true
+        run: npm ci --legacy-peer-deps
 
-      - name: Generate Native Android Project (Expo Prebuild)
+      # Never ship a build that fails its checks
+      - name: Typecheck & unit tests
+        run: |
+          npm run typecheck
+          npm test -- --ci
+
+      - name: Read app version
+        id: version
+        run: echo "version=$(node -p "require('./app.json').expo.version")" >> "$GITHUB_OUTPUT"
+
+      - name: Generate native Android project
         run: |
           npx expo prebuild --platform android --no-install
+          find node_modules -name "libs.versions.toml" -exec sed -i "s/1\.9\.24/1.9.25/g" {} + || true
           echo "" >> android/gradle.properties
           echo "android.kotlinVersion=1.9.25" >> android/gradle.properties
           sed -i "s/1\.9\.24/1.9.25/g" android/build.gradle || true
+          node scripts/configure-signing.mjs
 
-      - name: Build Full Unlocked Owner APK (Stock-QR-Inventory.apk)
+      - name: Build full APK
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease -Pandroid.kotlinVersion=1.9.25 -x lint -x test --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../Stock-QR-Inventory.apk
 
-      - name: Save Full Unlocked APK
+      - name: Build client demo APK (locked preview)
         run: |
-          cp android/app/build/outputs/apk/release/app-release.apk ./Stock-QR-Inventory.apk
-          ls -lh ./Stock-QR-Inventory.apk
-
-      - name: Build Blocked Client Demo APK (Stock-QR-Client-Demo-Locked.apk)
-        run: |
-          sed -i "s/DEFAULT_CLIENT_DEMO_LOCKED = false/DEFAULT_CLIENT_DEMO_LOCKED = true/g" src/context/InventoryContext.tsx
-          sed -i "s/Stock & QR Inventory/Mobile Store (Client Demo)/g" android/app/src/main/res/values/strings.xml || true
+          sed -i "s/DEFAULT_CLIENT_DEMO_LOCKED = false/DEFAULT_CLIENT_DEMO_LOCKED = true/" src/context/InventoryContext.tsx
+          grep -q "DEFAULT_CLIENT_DEMO_LOCKED = true" src/context/InventoryContext.tsx
+          sed -i "s/Stock &amp; QR Inventory/Stock QR (Client Demo)/g; s/Stock & QR Inventory/Stock QR (Client Demo)/g" android/app/src/main/res/values/strings.xml || true
           cd android
           ./gradlew assembleRelease -Pandroid.kotlinVersion=1.9.25 -x lint -x test --no-daemon
-          cd ..
-          cp android/app/build/outputs/apk/release/app-release.apk ./Stock-QR-Client-Demo-Locked.apk
-          ls -lh ./Stock-QR-Client-Demo-Locked.apk
+          cp app/build/outputs/apk/release/app-release.apk ../Stock-QR-Client-Demo-Locked.apk
 
-      - name: Upload APK Artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: Stock-QR-Inventory-APKs
+          name: Stock-QR-Inventory-APKs-v${{ steps.version.outputs.version }}
           path: |
-            ./Stock-QR-Inventory.apk
-            ./Stock-QR-Client-Demo-Locked.apk
+            Stock-QR-Inventory.apk
+            Stock-QR-Client-Demo-Locked.apk
 
-      - name: Publish Direct APK Downloads to GitHub Releases (v1.0.0 & v2.0.0)
+      # One release per app version. "releases/latest/download/<file>" always points at the newest,
+      # which is what the in-app updater (docs/live-update.json) uses.
+      - name: Publish GitHub release v${{ steps.version.outputs.version }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: "Mobile Store QR Inventory v2.0.0 (Full Owner APK + Blocked Client Demo APK)"
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Stock QR v${{ steps.version.outputs.version }}
+          make_latest: true
           body: |
-            ## 📱 1. Full Unlocked Owner Android APK (Mobile Phone Store Edition + Online Updates)
-            Tap **`Stock-QR-Inventory.apk`** below to install the full unlocked app with Mobile Store inventory, Designer QR Studio, Profit Dashboard, and Online Update Checker.
+            **Stock-QR-Inventory.apk** — the full app. Install over the previous version; your data stays.
+            **Stock-QR-Client-Demo-Locked.apk** — locked preview for showing clients (3 demo scans, editing/printing/export locked).
 
-            ## 🔒 2. Blocked Client Demo Android APK (Send This to Your Client)
-            Tap or share **`Stock-QR-Client-Demo-Locked.apk`** to show a client how the app works **without** giving them full access (watermarked, 3-scan demo limit, adding/printing/exporting locked).
+            iPhone: open https://rickmaity07-maker.github.io/stock-qr-inventory-app/app/ in Safari → Share → Add to Home Screen.
           files: |
-            ./Stock-QR-Inventory.apk
-            ./Stock-QR-Client-Demo-Locked.apk
-            ./docs/client-demo.html
-            ./dist/Stock-QR-Inventory-Android.html
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            Stock-QR-Inventory.apk
+            Stock-QR-Client-Demo-Locked.apk

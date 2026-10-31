@@ -2,6 +2,6 @@
   "version": "v2.5.0",
   "releasedAt": "2026-10-31T20:00:00.000Z",
   "notes": "v2.5.0: fixes products being reset to the sample list, private store sync with QR pairing, Apple-style redesign with dark mode, and an iPhone home-screen app.",
-  "apkDownloadUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/download/v1.0.0/Stock-QR-Inventory.apk",
-  "clientDemoApkUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/download/v1.0.0/Stock-QR-Client-Demo-Locked.apk"
+  "apkDownloadUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/latest/download/Stock-QR-Inventory.apk",
+  "clientDemoApkUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/latest/download/Stock-QR-Client-Demo-Locked.apk"
 }

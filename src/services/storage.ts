@@ -2,6 +2,7 @@
  * On-device storage (AsyncStorage on phones, localStorage on the web).
  * Keys keep their old names so data from earlier versions loads unchanged.
  */
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InventoryState } from '../types/inventory';
 
@@ -72,4 +73,42 @@ export function createInventoryWriter() {
       .catch((err) => console.warn('Could not save inventory:', err));
     return queue;
   };
+}
+
+/** Where the old hand-made iPhone page (docs/iphone-app.html) kept its data. */
+export const LEGACY_WEB_KEY = 'stock_qr_mobile_only_ios_v5';
+
+/**
+ * Web only: reads stock and sales saved by the old iPhone page so moving to the
+ * new app keeps them. Returns null when there is nothing to import.
+ */
+export function readLegacyWebInventory(): InventoryState | null {
+  if (Platform.OS !== 'web') return null;
+  try {
+    const raw = (globalThis as any).localStorage?.getItem(LEGACY_WEB_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data?.products) || data.products.length === 0) return null;
+    const now = new Date().toISOString();
+    return {
+      products: data.products.map((p: any) => ({
+        ...p,
+        category: String(p.category || 'General'),
+        buyingPrice: Number(p.buyingPrice) || 0,
+        sellingPrice: Number(p.sellingPrice) || 0,
+        quantity: Number(p.quantity) || 0,
+        minStockLevel: Number.isFinite(Number(p.minStockLevel)) ? Number(p.minStockLevel) : 5,
+        updatedAt: typeof p.updatedAt === 'string' ? p.updatedAt : now,
+        synced: false,
+      })),
+      transactions: (Array.isArray(data.transactions) ? data.transactions : []).map((t: any) => ({
+        ...t,
+        performedByRole: t.performedByRole === 'STAFF' ? 'STAFF' : 'OWNER',
+        timestamp: new Date(t.timestamp).toISOString(),
+        synced: false,
+      })),
+    };
+  } catch {
+    return null;
+  }
 }

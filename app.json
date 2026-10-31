@@ -47,6 +47,11 @@
     },
     "experiments": {
       "baseUrl": "/stock-qr-inventory-app/app"
+    },
+    "splash": {
+      "image": "./assets/adaptive-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#007AFF"
     }
   }
 }

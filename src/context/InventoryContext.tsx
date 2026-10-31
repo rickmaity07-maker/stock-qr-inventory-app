@@ -20,6 +20,7 @@ import {
   createInventoryWriter,
   parseStoredInventory,
   readAll,
+  readLegacyWebInventory,
   removeValue,
   setValue,
   setValues,
@@ -242,12 +243,14 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setIsSampleData(values[STORAGE_KEYS.IS_SAMPLE_DATA] === 'true');
           await writeInventory(loaded); // saves the migrated shape (opening quantities)
         } else {
-          const sample = sampleState();
-          stateRef.current = sample;
-          setState(sample);
-          setIsSampleData(true);
-          await writeInventory(sample);
-          await setValue(STORAGE_KEYS.IS_SAMPLE_DATA, 'true');
+          // Moving from the old iPhone page? Bring its stock and sales across.
+          const legacy = readLegacyWebInventory();
+          const first = legacy ? normalizeState(legacy) : sampleState();
+          stateRef.current = first;
+          setState(first);
+          setIsSampleData(!legacy);
+          await writeInventory(first);
+          await setValue(STORAGE_KEYS.IS_SAMPLE_DATA, String(!legacy));
         }
 
         const savedRole = values[STORAGE_KEYS.ROLE];
