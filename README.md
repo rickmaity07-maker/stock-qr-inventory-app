@@ -36,20 +36,46 @@ The iPhone version scans QR stickers with the camera. Factory barcodes (EAN/UPC)
 ```powershell
 npm install --legacy-peer-deps
 npx expo start            # press a for Android, w for web
-npm test                  # unit tests (Jest)
+npm test                  # unit + integration tests (Jest)
 npm run typecheck         # TypeScript
 npm run build:web         # builds the iPhone web app into docs/app
+npm run test:e2e          # clicks through the built web app (Playwright)
+npm run serve:web         # try docs/ locally at http://127.0.0.1:4180/stock-qr-inventory-app/app/
 ```
 
 Code layout:
 
 - `src/logic/inventoryLogic.ts` — pure rules (stock maths, sync merging, code matching, reports). Fully unit-tested in `__tests__/`.
-- `src/context/InventoryContext.tsx` — app state, storage, sync.
-- `src/services/` — ntfy relay and Supabase.
-- `src/ui/` — iOS-style components and theme tokens.
-- `app/(tabs)/` — the five screens.
+- `src/context/InventoryContext.tsx` — app state and actions.
+- `src/sync/useSyncEngine.ts` — phone-to-phone and Supabase sync.
+- `src/services/` — storage, backup, ntfy relay, Supabase.
+- `src/logic/money.ts` — currency.
+- `src/ui/` — iOS-style components, theme tokens, crash screen.
+- `src/screens/` — the five screens.
+- `tests/e2e/` — browser tests of the iPhone web app.
 
 ## Releasing
 
-Pushing to `main` runs the tests and builds both APKs (full and client-demo) into the `v1.0.0` GitHub release.
-Bump `version` in `app.json` and in `docs/live-update.json` together so installed phones are offered the update.
+1. Bump `version` (and `android.versionCode`) in `app.json`, and `version` + `notes` in `docs/live-update.json`.
+2. `npm run build:web` and commit `docs/app`.
+3. Push to `main`. GitHub Actions runs the checks, builds both APKs and publishes release `vX.Y.Z`.
+   Installed phones see the update under Settings → Check for updates; the iPhone app updates itself on the next launch.
+
+### Signing with your own key (recommended once)
+
+Without secrets, APKs use Expo's default key — fine for side-loading, and existing installs keep updating.
+To sign with your own key, create one and add four repository secrets:
+
+```powershell
+keytool -genkeypair -v -keystore stockqr.keystore -alias stockqr -keyalg RSA -keysize 2048 -validity 10000
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("stockqr.keystore")) | Set-Clipboard   # → ANDROID_KEYSTORE_BASE64
+```
+
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (stockqr), `ANDROID_KEY_PASSWORD`.
+Keep the keystore file safe — losing it means users must reinstall. Switching keys requires phones to uninstall the old app once,
+so back up first (Settings → Data → Back up inventory) or keep another phone paired.
+
+## Privacy
+
+Inventory stays on the phone. With pairing on, changes are sent to ntfy.sh under the store's random code
+(anyone holding the code can read them). With Supabase, data goes to your own project instead.
