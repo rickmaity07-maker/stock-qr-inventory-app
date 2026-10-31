@@ -1,136 +1,143 @@
 import React, { useState } from 'react';
-import { Linking, Platform, Switch, Text, View } from 'react-native';
+import { Linking, Platform, Switch, View } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Updates from 'expo-updates';
 import { Ionicons } from '@expo/vector-icons';
 import { APP_VERSION, useInventory } from '../context/InventoryContext';
-import { DesignerQrCode } from '../components/DesignerQrCode';
-import { buildPairingPayload } from '../logic/inventoryLogic';
 import { CURRENCIES, CurrencyCode } from '../logic/money';
 import { pickBackup, shareBackup } from '../services/backup';
-import {
-  Button,
-  Field,
-  IconTile,
-  LargeTitle,
-  Notice,
-  Row,
-  Screen,
-  Section,
-  Sheet,
-} from '../ui/components';
+import { api } from '../services/api';
+import { Button, Field, IconTile, LargeTitle, Notice, Row, Screen, Section, Sheet } from '../ui/components';
 import { confirmAction, showAlert } from '../ui/dialog';
-import { radius, space, type, usePalette } from '../ui/theme';
+import { space, usePalette } from '../ui/theme';
 
 const CLIENT_DEMO_WEB_URL = 'https://rickmaity07-maker.github.io/stock-qr-inventory-app/client-demo.html';
+
+type AuthMode = 'signin' | 'create';
 
 export default function SettingsScreen() {
   const c = usePalette();
   const inv = useInventory();
-  const {
-    role,
-    pinIsDefault,
-    pinLockedUntil,
-    cloudConfig,
-    syncMode,
-    syncCode,
-    isSyncing,
-    lastSyncedAt,
-    lastSyncError,
-    unsyncedCount,
-    isSampleData,
-    isClientDemoLocked,
-  } = inv;
-  const isOwner = role === 'OWNER' && !isClientDemoLocked;
+  const { account, serverConfigured, cloudConfig, isSyncing, lastSyncedAt, lastSyncError, unsyncedCount, isSampleData, isClientDemoLocked } = inv;
 
-  const [pin, setPin] = useState('');
-  const [newPin, setNewPin] = useState('');
-  const [pairVisible, setPairVisible] = useState(false);
-  const [joinVisible, setJoinVisible] = useState(false);
-  const [joinCode, setJoinCode] = useState('');
-  const [cloudVisible, setCloudVisible] = useState(false);
-  const [url, setUrl] = useState(cloudConfig.supabaseUrl);
-  const [key, setKey] = useState(cloudConfig.supabaseAnonKey);
+  const [licence, setLicence] = useState('');
+  const [authMode, setAuthMode] = useState<AuthMode | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [setupKey, setSetupKey] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [pwVisible, setPwVisible] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
   const [updateStatus, setUpdateStatus] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [currencyVisible, setCurrencyVisible] = useState(false);
 
-  // ---- roles -------------------------------------------------------------
+  // ---- account -------------------------------------------------------------
 
-  const unlockOwner = async () => {
-    if (isClientDemoLocked) {
-      const ok = await inv.unlockClientDemo(pin);
-      setPin('');
-      showAlert(ok ? 'Full version unlocked' : 'That key did not work', ok ? 'Owner mode is on.' : undefined);
+  const openAuth = async () => {
+    setAuthError(null);
+    setPassword('');
+    setSetupKey('');
+    let mode: AuthMode = 'signin';
+    try {
+      const { hasOwner } = await api.status();
+      if (!hasOwner) mode = 'create';
+    } catch {
+      // offline or not reachable: default to sign in; the request will explain
+    }
+    setAuthMode(mode);
+  };
+
+  const submitAuth = async () => {
+    if (!authMode || authBusy) return;
+    setAuthError(null);
+    if (!email.trim() || password.length < 8) {
+      setAuthError('Enter your email and a password of at least 8 characters.');
       return;
     }
-    const res = await inv.unlockOwnerRole(pin);
-    setPin('');
-    if (res === 'wrong') showAlert('Wrong PIN', 'Try again.');
-    if (res === 'locked') showAlert('Too many attempts', 'Wait 30 seconds and try again.');
-  };
-
-  const changePin = async () => {
+    if (authMode === 'create' && !setupKey.trim()) {
+      setAuthError('Enter the setup key you were given.');
+      return;
+    }
+    setAuthBusy(true);
     try {
-      await inv.updateOwnerPin(newPin);
-      setNewPin('');
-      showAlert('PIN updated', 'Use the new PIN next time you unlock owner mode.');
+      if (authMode === 'create') await inv.createOwnerAccount(setupKey, email, password);
+      else await inv.signIn(email, password);
+      setAuthMode(null);
+      setPassword('');
     } catch (e) {
-      showAlert('PIN not changed', e instanceof Error ? e.message : String(e));
+      setAuthError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAuthBusy(false);
     }
   };
 
-  // ---- sync --------------------------------------------------------------
+  const signOut = async (everywhere: boolean) => {
+    const ok = await confirmAction({
+      title: everywhere ? 'Sign out on every device?' : 'Sign out on this phone?',
+      message: everywhere
+        ? 'All phones must sign in again. Use this if a phone was lost or stolen.'
+        : 'Products and sales stay on this phone, but it stops syncing until you sign in again.',
+      confirmText: 'Sign out',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await inv.signOut(everywhere);
+    } catch (e) {
+      showAlert('Could not sign out', e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const savePassword = async () => {
+    if (newPw.length < 8) {
+      showAlert('Password too short', 'Use at least 8 characters.');
+      return;
+    }
+    try {
+      await inv.changePassword(currentPw, newPw);
+      setPwVisible(false);
+      setCurrentPw('');
+      setNewPw('');
+      showAlert('Password changed', 'Your other devices need to sign in again with the new password.');
+    } catch (e) {
+      showAlert('Password not changed', e instanceof Error ? e.message : String(e));
+    }
+  };
 
   const syncNow = async () => {
     const res = await inv.syncWithCloud();
-    showAlert(res.ok ? 'Synced' : 'Not synced', res.message);
+    if (!res.ok) showAlert('Not synced', res.message);
   };
 
-  const toggleAutoSync = (on: boolean) => inv.updateCloudConfig({ ...cloudConfig, autoSyncEnabled: on });
+  // ---- preview lock ----------------------------------------------------------
 
-  const join = async () => {
-    const res = await inv.joinStoreSync(joinCode);
-    if (res.ok) {
-      setJoinVisible(false);
-      setJoinCode('');
-    }
-    showAlert(res.ok ? 'Phone paired' : 'Could not pair', res.message);
+  const unlockPreview = async () => {
+    const ok = await inv.unlockClientDemo(licence);
+    setLicence('');
+    showAlert(ok ? 'Full version unlocked' : 'That key did not work', ok ? 'All features are available again.' : undefined);
   };
 
-  const resetPairing = async () => {
+  const lockDemo = async () => {
     const ok = await confirmAction({
-      title: 'Create a new store code?',
-      message: 'Phones paired with the old code stop receiving updates until you pair them again. Use this if a phone was lost.',
-      confirmText: 'New code',
-      destructive: true,
+      title: 'Switch to preview mode?',
+      message: 'For showing the app to someone: editing, printing and exports are locked and only 3 demo scans are allowed. Unlock with the licence key.',
+      confirmText: 'Lock',
     });
-    if (ok) await inv.createNewSyncCode();
+    if (ok) await inv.enableClientDemoLock();
   };
 
-  const saveCloud = async () => {
-    if (url.trim() && !/^https:\/\//i.test(url.trim())) {
-      showAlert('Check the URL', 'The Supabase project URL starts with https://');
-      return;
-    }
-    await inv.updateCloudConfig({ supabaseUrl: url, supabaseAnonKey: key, autoSyncEnabled: cloudConfig.autoSyncEnabled });
-    setCloudVisible(false);
-    if (url.trim() && key.trim()) {
-      const res = await inv.syncWithCloud();
-      showAlert(res.ok ? 'Supabase connected' : 'Saved, but not synced yet', res.message);
-    }
-  };
-
-  // ---- updates -----------------------------------------------------------
+  // ---- updates ----------------------------------------------------------------
 
   const checkUpdates = async () => {
     setChecking(true);
     setUpdateStatus('Checking…');
     try {
       if (Platform.OS === 'web') {
-        const sw = (globalThis as any).navigator?.serviceWorker;
-        const reg = await sw?.getRegistration?.();
+        const reg = await (globalThis as any).navigator?.serviceWorker?.getRegistration?.();
         await reg?.update?.();
         setUpdateStatus('Reloading with the latest version…');
         (globalThis as any).location?.reload();
@@ -150,8 +157,7 @@ export default function SettingsScreen() {
         setUpdateStatus(`Downloading ${info.latestVersion}…`);
         const dir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
         if (!dir) throw new Error('No storage available for the download.');
-        const target = `${dir}stock-qr-inventory-${info.latestVersion}.apk`;
-        const dl = await FileSystem.downloadAsync(info.apkUrl, target);
+        const dl = await FileSystem.downloadAsync(info.apkUrl, `${dir}stock-qr-inventory-${info.latestVersion}.apk`);
         if (dl.status < 200 || dl.status >= 300) throw new Error(`Download failed (HTTP ${dl.status}).`);
         const contentUri = await FileSystem.getContentUriAsync(dl.uri);
         setUpdateStatus('Approve the Android prompt to finish installing.');
@@ -179,7 +185,7 @@ export default function SettingsScreen() {
     }
   };
 
-  // ---- data --------------------------------------------------------------
+  // ---- data ----------------------------------------------------------------------
 
   const backupNow = async () => {
     try {
@@ -209,7 +215,7 @@ export default function SettingsScreen() {
   const startFresh = async () => {
     const ok = await confirmAction({
       title: 'Start your own store?',
-      message: 'This removes the sample products and sales from this phone and gives the store a new pairing code. This cannot be undone.',
+      message: 'This removes the sample products and sales from this phone. This cannot be undone.',
       confirmText: 'Start fresh',
       destructive: true,
     });
@@ -223,116 +229,83 @@ export default function SettingsScreen() {
       confirmText: 'Load sample',
       destructive: true,
     });
-    if (ok) await inv.resetToDemoData();
+    if (!ok) return;
+    try {
+      await inv.resetToDemoData();
+    } catch (e) {
+      showAlert('Not loaded', e instanceof Error ? e.message : String(e));
+    }
   };
 
-  const lockDemo = async () => {
-    const ok = await confirmAction({
-      title: 'Switch to preview mode?',
-      message: 'For showing the app to a client: editing, printing and exports are locked and only 3 demo scans are allowed. Unlock later with the owner PIN.',
-      confirmText: 'Lock',
-    });
-    if (ok) await inv.enableClientDemoLock();
-  };
-
-  const syncSubtitle =
-    syncMode === 'supabase'
-      ? 'Supabase database'
-      : syncMode === 'relay'
-      ? 'Paired phones (automatic)'
-      : 'Off — this phone only';
+  const statusText = isSyncing
+    ? 'Syncing…'
+    : unsyncedCount > 0
+    ? `${unsyncedCount} waiting to upload`
+    : lastSyncedAt
+    ? `Up to date · ${new Date(lastSyncedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+    : 'Not synced yet';
 
   return (
     <Screen>
       <LargeTitle title="Settings" />
 
-      {isOwner && pinIsDefault ? (
-        <Notice tone="orange" icon="key-outline" title="Change the owner PIN" message="The PIN is still the default 1234, so anyone can see profit and buying prices." />
+      {isClientDemoLocked ? (
+        <Section header="Preview mode" footer="This phone is locked for showing the app. Enter the licence key to unlock it.">
+          <Field label="Licence key" value={licence} onChangeText={setLicence} autoCapitalize="characters" autoCorrect={false} secureTextEntry onSubmitEditing={unlockPreview} />
+          <Row title="Unlock" tinted disabled={!licence.trim()} onPress={unlockPreview} />
+        </Section>
       ) : null}
 
-      {/* Access */}
-      <Section header="Access" footer="The owner sees buying prices, profit and reports. Staff can sell, restock and view stock.">
-        <Row
-          title={isClientDemoLocked ? 'Preview mode' : role === 'OWNER' ? 'Owner' : 'Staff'}
-          subtitle="This phone's role"
-          left={<IconTile name={role === 'OWNER' && !isClientDemoLocked ? 'shield-checkmark' : 'person'} color={role === 'OWNER' && !isClientDemoLocked ? c.indigo : c.gray} />}
-        />
-        {isOwner ? (
-          <>
-            <Row title="Switch to staff mode" tinted onPress={inv.switchToStaffRole} />
-            <Field label="New owner PIN (4–8 digits)" value={newPin} onChangeText={(t) => setNewPin(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" secureTextEntry maxLength={8} />
-            <Row title="Save new PIN" tinted disabled={newPin.length < 4} onPress={changePin} />
-          </>
-        ) : (
-          <>
-            <Field
-              label={isClientDemoLocked ? 'Licence key or owner PIN' : 'Owner PIN'}
-              value={pin}
-              onChangeText={setPin}
-              keyboardType={isClientDemoLocked ? 'default' : 'number-pad'}
-              autoCapitalize="characters"
-              secureTextEntry
-              onSubmitEditing={unlockOwner}
-            />
-            <Row title={Date.now() < pinLockedUntil ? 'Try again in a moment' : 'Unlock'} tinted disabled={!pin || Date.now() < pinLockedUntil} onPress={unlockOwner} />
-          </>
-        )}
-      </Section>
-
-      {/* Sync */}
-      <Section
-        header="Sync between phones"
-        footer={
-          syncMode === 'relay'
-            ? 'Every change is shared within seconds with phones paired to this store. Scanning keeps working offline and catches up later.'
-            : undefined
-        }
-      >
-        <Row title="Sync" subtitle={syncSubtitle} left={<IconTile name="sync" color={c.green} />} />
-        <Row
-          title="Automatic sync"
-          right={<Switch value={cloudConfig.autoSyncEnabled} onValueChange={toggleAutoSync} disabled={!isOwner} trackColor={{ true: c.green, false: c.fillStrong }} thumbColor="#FFFFFF" {...({ activeThumbColor: "#FFFFFF" } as object)} />}
-        />
-        <Row
-          title="Status"
-          value={
-            isSyncing
-              ? 'Syncing…'
-              : unsyncedCount > 0
-              ? `${unsyncedCount} waiting`
-              : lastSyncedAt
-              ? `Up to date ${new Date(lastSyncedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
-              : 'Not synced yet'
+      {/* Account & sync */}
+      {account ? (
+        <Section header="Cloud account" footer="Every phone signed in to this account shares the same products, stock and sales. Selling works offline and catches up automatically.">
+          <Row title={account.email} subtitle="Signed in" left={<IconTile name="cloud-done" color={c.green} />} />
+          <Row title="Status" value={statusText} />
+          <Row title="Sync now" tinted onPress={syncNow} disabled={isSyncing} />
+          <Row
+            title="Automatic sync"
+            right={
+              <Switch
+                value={cloudConfig.autoSyncEnabled}
+                onValueChange={(on) => inv.updateCloudConfig({ autoSyncEnabled: on })}
+                trackColor={{ true: c.green, false: c.fillStrong }}
+                thumbColor="#FFFFFF"
+                {...({ activeThumbColor: '#FFFFFF' } as object)}
+              />
+            }
+          />
+          <Row title="Change password" chevron onPress={() => setPwVisible(true)} />
+          <Row title="Sign out on this phone" destructive onPress={() => signOut(false)} />
+          <Row title="Sign out on every device" destructive onPress={() => signOut(true)} />
+        </Section>
+      ) : (
+        <Section
+          header="Cloud account"
+          footer={
+            serverConfigured
+              ? 'Sign in on each of your phones to keep stock and sales in sync and safely backed up online.'
+              : 'This build has no cloud server configured, so data stays on this phone.'
           }
-        />
-        {syncMode !== 'off' ? <Row title="Sync now" tinted onPress={syncNow} disabled={isSyncing} /> : null}
-        {isOwner && syncMode !== 'supabase' ? (
-          <>
-            <Row title="Show pairing code" subtitle="Scan it from another phone to share this store" chevron onPress={() => setPairVisible(true)} />
-            <Row title="Pair with another store" subtitle="Enter or scan the other phone's code" chevron onPress={() => setJoinVisible(true)} />
-          </>
-        ) : null}
-        {isOwner ? (
-          <Row title="Supabase database (advanced)" value={syncMode === 'supabase' ? 'On' : 'Off'} chevron onPress={() => setCloudVisible(true)} />
-        ) : null}
-      </Section>
-      {lastSyncError ? (
-        <Notice tone="orange" icon="cloud-offline-outline" title="Last sync failed" message={lastSyncError} />
-      ) : null}
+        >
+          <Row title="Not signed in" subtitle="Data is saved on this phone only" left={<IconTile name="cloud-offline" color={c.gray} />} />
+          {serverConfigured && !isClientDemoLocked ? <Row title="Sign in" tinted chevron onPress={openAuth} /> : null}
+        </Section>
+      )}
+      {lastSyncError ? <Notice tone="orange" icon="cloud-offline-outline" title="Last sync did not finish" message={lastSyncError} /> : null}
 
-      {/* Updates */}
+      {/* App */}
       <Section header="App" footer={updateStatus || undefined}>
         <Row title="Version" value={APP_VERSION} />
         <Row title={checking ? 'Checking…' : 'Check for updates'} tinted onPress={checkUpdates} disabled={checking} />
       </Section>
 
       {/* Data */}
-      {isOwner ? (
+      {!isClientDemoLocked ? (
         <Section
           header="Data"
           footer={
             isSampleData
-              ? 'This phone has sample products. Start fresh when you are ready to enter your own.'
+              ? 'This phone has sample products. Start fresh when you are ready to enter your own (signing in also removes them).'
               : 'A backup file holds every product and sale. Keep one somewhere safe, e.g. iCloud Drive or Google Drive.'
           }
         >
@@ -340,17 +313,65 @@ export default function SettingsScreen() {
           <Row title="Currency" value={CURRENCIES[inv.currency].label} chevron onPress={() => setCurrencyVisible(true)} />
           <Row title="Back up inventory" left={<Ionicons name="cloud-download-outline" size={20} color={c.tint} />} tinted onPress={backupNow} />
           <Row title="Restore from backup" left={<Ionicons name="folder-open-outline" size={20} color={c.tint} />} tinted onPress={restoreFromFile} />
-          <Row title="Load sample data" destructive onPress={restoreSample} />
+          {!account ? <Row title="Load sample data" destructive onPress={restoreSample} /> : null}
         </Section>
       ) : null}
 
-      {/* Client preview */}
-      {isOwner ? (
+      {/* Showing someone */}
+      {!isClientDemoLocked ? (
         <Section header="Showing a client" footer="Preview mode locks editing, printing and exports, and allows 3 demo scans.">
           <Row title="Lock this phone in preview mode" left={<Ionicons name="lock-closed-outline" size={20} color={c.tint} />} tinted onPress={lockDemo} />
           <Row title="Open the web demo link" left={<Ionicons name="share-outline" size={20} color={c.tint} />} tinted onPress={() => Linking.openURL(CLIENT_DEMO_WEB_URL)} />
         </Section>
       ) : null}
+
+      {/* Sign in / create account */}
+      <Sheet
+        visible={Boolean(authMode)}
+        title={authMode === 'create' ? 'Create owner account' : 'Sign in'}
+        onClose={() => setAuthMode(null)}
+        action={{ label: authMode === 'create' ? 'Create' : 'Sign in', onPress: submitAuth, loading: authBusy }}
+      >
+        <Section
+          footer={
+            authMode === 'create'
+              ? 'First time only: this creates the one owner account for your shop. You need the setup key from your developer.'
+              : isSampleData
+              ? 'The sample products on this phone are removed when you sign in.'
+              : 'Products and sales already on this phone are uploaded to your account.'
+          }
+        >
+          {authMode === 'create' ? (
+            <Field label="Setup key" value={setupKey} onChangeText={setSetupKey} autoCapitalize="characters" autoCorrect={false} placeholder="XXXXXXXX-XXXXXXXX" />
+          ) : null}
+          <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" autoComplete="email" />
+          <Field
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            textContentType={authMode === 'create' ? 'newPassword' : 'password'}
+            autoComplete={authMode === 'create' ? 'new-password' : 'current-password'}
+            hint={authMode === 'create' ? 'At least 8 characters' : undefined}
+            onSubmitEditing={submitAuth}
+          />
+        </Section>
+        {authError ? <Notice tone="red" icon="alert-circle-outline" title={authError} /> : null}
+        <View style={{ padding: space.lg }}>
+          <Button title={authMode === 'create' ? 'Create account' : 'Sign in'} onPress={submitAuth} loading={authBusy} />
+          {authMode === 'signin' ? (
+            <Button title="First time? Create the owner account" variant="plain" size="medium" onPress={() => setAuthMode('create')} style={{ marginTop: space.sm }} />
+          ) : null}
+        </View>
+      </Sheet>
+
+      {/* Change password */}
+      <Sheet visible={pwVisible} title="Change password" onClose={() => setPwVisible(false)} action={{ label: 'Save', onPress: savePassword }}>
+        <Section footer="Other phones will need to sign in again with the new password.">
+          <Field label="Current password" value={currentPw} onChangeText={setCurrentPw} secureTextEntry textContentType="password" />
+          <Field label="New password" value={newPw} onChangeText={setNewPw} secureTextEntry textContentType="newPassword" hint="At least 8 characters" />
+        </Section>
+      </Sheet>
 
       {/* Currency */}
       <Sheet visible={currencyVisible} title="Currency" onClose={() => setCurrencyVisible(false)} closeLabel="Done">
@@ -367,47 +388,6 @@ export default function SettingsScreen() {
             />
           ))}
         </Section>
-      </Sheet>
-
-      {/* Pairing code sheet */}
-      <Sheet visible={pairVisible} title="Pairing code" onClose={() => setPairVisible(false)} closeLabel="Done">
-        <View style={{ alignItems: 'center', padding: space.xl, gap: space.md }}>
-          <View style={{ backgroundColor: '#FFFFFF', padding: space.md, borderRadius: radius.xl }}>
-            <DesignerQrCode value={buildPairingPayload(syncCode)} size={230} />
-          </View>
-          <Text style={[type.subhead, { color: c.secondaryLabel, textAlign: 'center' }]}>
-            On the other phone, open Scan and point it at this code. It will ask to join this store.
-          </Text>
-          <Text selectable style={[type.footnote, { color: c.tertiaryLabel, textAlign: 'center' }]}>
-            {syncCode}
-          </Text>
-        </View>
-        <Section footer="Only share this code with your own staff — anyone who has it can see and change this store's stock.">
-          <Row title="Create a new code" destructive onPress={resetPairing} />
-        </Section>
-      </Sheet>
-
-      {/* Join sheet */}
-      <Sheet
-        visible={joinVisible}
-        title="Pair with store"
-        onClose={() => setJoinVisible(false)}
-        action={{ label: 'Pair', onPress: join, disabled: joinCode.trim().length < 20 }}
-      >
-        <Section footer="Easiest: open the Scan tab and scan the pairing QR shown on the other phone. Or type the code shown under it.">
-          <Field label="Store code" value={joinCode} onChangeText={setJoinCode} autoCapitalize="none" autoCorrect={false} placeholder="e.g. k3f9…" />
-        </Section>
-      </Sheet>
-
-      {/* Supabase sheet */}
-      <Sheet visible={cloudVisible} title="Supabase" onClose={() => setCloudVisible(false)} action={{ label: 'Save', onPress: saveCloud }}>
-        <Section footer="Optional. Use your own Supabase project instead of automatic pairing. Run supabase/schema.sql in its SQL editor first. Leave both empty to switch back to automatic pairing.">
-          <Field label="Project URL" value={url} onChangeText={setUrl} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://xyz.supabase.co" />
-          <Field label="Anon key" value={key} onChangeText={setKey} autoCapitalize="none" autoCorrect={false} secureTextEntry placeholder="eyJ…" />
-        </Section>
-        <View style={{ padding: space.lg }}>
-          <Button title="Save and sync" onPress={saveCloud} />
-        </View>
       </Sheet>
     </Screen>
   );

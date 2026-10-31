@@ -15,9 +15,10 @@
     "expo-env.d.ts"
   ],
   "exclude": [
-    "node_modules",
-    "web-build",
+    "dist",
     "docs",
-    "dist"
+    "node_modules",
+    "server",
+    "web-build"
   ]
 }

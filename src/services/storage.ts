@@ -22,6 +22,7 @@ export const STORAGE_KEYS = {
   RELAY_LAST_ID: '@stockqr_relay_last_id_v5',
   IS_SAMPLE_DATA: '@stockqr_is_sample_data_v5',
   CURRENCY: '@stockqr_currency_v5',
+  CLOUD_CURSOR: '@stockqr_cloud_cursor_v6',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

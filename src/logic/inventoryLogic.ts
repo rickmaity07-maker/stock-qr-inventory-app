@@ -381,7 +381,7 @@ export function csvCell(value: string | number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Versions & pairing codes
+// Versions
 // ---------------------------------------------------------------------------
 
 /** >0 when a is newer than b. Accepts "v2.4.0" or "2.4". */
@@ -393,28 +393,4 @@ export function compareVersions(a: string, b: string): number {
     if (diff !== 0) return diff;
   }
   return 0;
-}
-
-export const PAIRING_PREFIX = 'STOCKQR-SYNC:';
-const SYNC_CODE_PATTERN = /^[a-z0-9]{20,64}$/;
-
-export function buildPairingPayload(syncCode: string): string {
-  return `${PAIRING_PREFIX}${syncCode}`;
-}
-
-/** Returns the store sync code inside a scanned pairing QR (or a typed code), else null. */
-export function parsePairingPayload(text: string): string | null {
-  const trimmed = text.trim();
-  const raw = trimmed.toUpperCase().startsWith(PAIRING_PREFIX)
-    ? trimmed.slice(PAIRING_PREFIX.length)
-    : trimmed;
-  const code = raw.trim().toLowerCase();
-  return SYNC_CODE_PATTERN.test(code) ? code : null;
-}
-
-/** Turns random bytes into a store sync code (lowercase base36, ~128 bits). */
-export function syncCodeFromBytes(bytes: Uint8Array): string {
-  let out = '';
-  for (const b of bytes) out += (b % 36).toString(36);
-  return out;
 }

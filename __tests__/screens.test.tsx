@@ -10,13 +10,13 @@ jest.mock('../src/context/InventoryContext', () => ({
 }));
 import App from '../App';
 
-jest.mock('expo-constants', () => ({ expoConfig: { version: '2.5.0' } }));
+jest.mock('expo-constants', () => ({ expoConfig: { version: '2.5.0', extra: { apiUrl: '' } } }));
+jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(async () => null), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => {}) }));
 jest.mock('expo-crypto', () => ({ CryptoDigestAlgorithm: { SHA256: 'SHA-256' }, digestStringAsync: jest.fn(async (_: string, s: string) => `hash:${s}`), getRandomBytes: jest.fn((n: number) => new Uint8Array(n).fill(3)) }));
 jest.mock('expo-camera', () => ({ CameraView: () => null, useCameraPermissions: () => [{ granted: false }, jest.fn(async () => ({ granted: true }))] }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaProvider: ({ children }: any) => children, useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }) }));
 jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn(async () => {}), impactAsync: jest.fn(async () => {}), notificationAsync: jest.fn(async () => {}), ImpactFeedbackStyle: {}, NotificationFeedbackType: {} }));
-jest.mock('../src/services/liveRelay', () => ({ publishState: jest.fn(async () => true), pollPackets: jest.fn(async () => ({ packets: [], lastId: null })) }));
 global.fetch = jest.fn(() => Promise.reject(new Error('offline'))) as jest.Mock;
 beforeEach(async () => { mockScreenRole = 'OWNER'; await AsyncStorage.clear(); jest.clearAllMocks(); });
 

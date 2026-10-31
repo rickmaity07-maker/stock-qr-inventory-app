@@ -1,14 +1,8 @@
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
-import { syncModeFor, markUploaded } from '../src/sync/useSyncEngine';
-import { InventoryState, CloudConfig } from '../src/types/inventory';
-const cfg = (x: Partial<CloudConfig> = {}): CloudConfig => ({ supabaseUrl: '', supabaseAnonKey: '', autoSyncEnabled: true, ...x });
+import { markUploaded } from '../src/sync/useSyncEngine';
+import { InventoryState } from '../src/types/inventory';
 const state = (): InventoryState => ({ products: [{ id: 'p', name: 'Tea', category: 'Food', qrCode: 'STK-TEAX-1234', quantity: 2, openingQuantity: 2, minStockLevel: 0, buyingPrice: 1, sellingPrice: 2, updatedAt: '2026-01-01T00:00:00Z', synced: false }], transactions: [{ id: 't', productId: 'p', productName: 'Tea', type: 'SALE', quantity: 1, unitBuyingPrice: 1, unitSellingPrice: 2, performedByRole: 'OWNER', timestamp: '2026-01-01T00:00:00Z', synced: false }] });
 
-test('syncModeFor chooses Supabase when credentials are configured', () => expect(syncModeFor(cfg({ supabaseUrl: 'https://db.test', supabaseAnonKey: 'key' }), 'code')).toBe('supabase'));
-test('syncModeFor chooses relay with auto sync and a code', () => expect(syncModeFor(cfg(), 'abc')).toBe('relay'));
-test('syncModeFor is off without a code when Supabase is absent', () => expect(syncModeFor(cfg(), '')).toBe('off'));
-test('syncModeFor is off when auto sync is disabled', () => expect(syncModeFor(cfg({ autoSyncEnabled: false }), 'abc')).toBe('off'));
-test('syncModeFor uses Supabase even when auto sync is disabled', () => expect(syncModeFor(cfg({ autoSyncEnabled: false, supabaseUrl: 'https://db.test', supabaseAnonKey: 'key' }), '')).toBe('supabase'));
 test('markUploaded marks uploaded product and transaction synced', () => {
  const uploaded = state(); const out = markUploaded(uploaded, state());
  expect(out.products[0].synced).toBe(true); expect(out.transactions[0].synced).toBe(true);

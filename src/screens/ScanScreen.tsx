@@ -29,8 +29,6 @@ import { formatMoney, radius, space, tabular, type, usePalette } from '../ui/the
 import {
   isValidIsoDate,
   parseNonNegativeNumber,
-  parsePairingPayload,
-  PAIRING_PREFIX,
 } from '../logic/inventoryLogic';
 
 const MODES: { value: ScannerMode; label: string }[] = [
@@ -60,7 +58,6 @@ export default function ScannerScreen() {
     recordSale,
     recordRestock,
     linkFactoryBarcode,
-    joinStoreSync,
     isClientDemoLocked,
     consumeDemoAction,
   } = useInventory();
@@ -71,7 +68,6 @@ export default function ScannerScreen() {
   const [cameraOn, setCameraOn] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [unknownCode, setUnknownCode] = useState<string | null>(null);
-  const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [bigQr, setBigQr] = useState<Product | null>(null);
   const [query, setQuery] = useState('');
   const [feedback, setFeedback] = useState<Feedback>(null);
@@ -84,7 +80,7 @@ export default function ScannerScreen() {
 
   // Always show the live product (stock may change on another phone while the sheet is open)
   const active = activeId ? getProduct(activeId) ?? null : null;
-  const sheetOpen = Boolean(activeId || unknownCode || pairingCode);
+  const sheetOpen = Boolean(activeId || unknownCode);
 
   const openProduct = useCallback(
     (p: Product) => {
@@ -106,14 +102,6 @@ export default function ScannerScreen() {
       if (lastScan.current.code === code && now - lastScan.current.at < 2000) return;
       lastScan.current = { code, at: now };
 
-      if (code.toUpperCase().startsWith(PAIRING_PREFIX)) {
-        const parsed = parsePairingPayload(code);
-        if (parsed) {
-          haptic('success');
-          setPairingCode(code);
-          return;
-        }
-      }
       const found = findProductByCode(code);
       if (found) openProduct(found);
       else {
@@ -127,7 +115,6 @@ export default function ScannerScreen() {
   const closeSheets = () => {
     setActiveId(null);
     setUnknownCode(null);
-    setPairingCode(null);
     lastScan.current = { code: lastScan.current.code, at: Date.now() };
   };
 
@@ -211,17 +198,6 @@ export default function ScannerScreen() {
     } finally {
       setBusy(false);
     }
-  };
-
-  const joinStore = async () => {
-    if (!pairingCode) return;
-    if (role !== 'OWNER' || isClientDemoLocked) {
-      showAlert('Owner only', 'Unlock owner mode in Settings to pair this phone with a store.');
-      return;
-    }
-    const res = await joinStoreSync(pairingCode);
-    closeSheets();
-    showAlert(res.ok ? 'Phone paired' : 'Could not pair', res.message);
   };
 
   const listed = useMemo(() => {
@@ -511,16 +487,6 @@ export default function ScannerScreen() {
             ))
           )}
         </Section>
-      </Sheet>
-
-      {/* Pairing QR scanned */}
-      <Sheet visible={Boolean(pairingCode)} title="Pair with store" onClose={closeSheets}>
-        <EmptyState
-          icon="sync-circle-outline"
-          title="Join this store?"
-          message="This phone will share stock, products and sales with the phone that showed this code. Products already on this phone are kept and shared too."
-          action={{ label: 'Pair this phone', onPress: joinStore }}
-        />
       </Sheet>
 
       {/* Big QR for phone-to-phone scanning */}

@@ -74,8 +74,6 @@ export interface MonthlySummary {
 }
 
 export interface CloudConfig {
-  supabaseUrl: string;
-  supabaseAnonKey: string;
   autoSyncEnabled: boolean;
 }
 

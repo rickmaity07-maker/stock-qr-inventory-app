@@ -6,13 +6,21 @@ import * as Crypto from 'expo-crypto';
 import { InventoryProvider, useInventory, InventoryError } from '../src/context/InventoryContext';
 import { STORAGE_KEYS } from '../src/services/storage';
 
-jest.mock('expo-constants', () => ({ expoConfig: { version: '2.5.0' } }));
+jest.mock('expo-constants', () => ({ expoConfig: { version: '2.5.0', extra: { apiUrl: 'https://api.test/api' } } }));
+jest.mock('expo-secure-store', () => {
+  const store = new Map<string, string>();
+  return {
+    getItemAsync: jest.fn(async (k: string) => store.get(k) ?? null),
+    setItemAsync: jest.fn(async (k: string, v: string) => void store.set(k, v)),
+    deleteItemAsync: jest.fn(async (k: string) => void store.delete(k)),
+    __store: store,
+  };
+});
 jest.mock('expo-crypto', () => ({
   CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
   digestStringAsync: jest.fn(async (_algorithm: string, value: string) => `hash:${value}`),
   getRandomBytes: jest.fn((n: number) => new Uint8Array(n).fill(7)),
 }));
-jest.mock('../src/services/liveRelay', () => ({ publishState: jest.fn(async () => true), pollPackets: jest.fn(async () => ({ packets: [], lastId: null })) }));
 global.fetch = jest.fn(() => Promise.reject(new Error('offline'))) as jest.Mock;
 
 const wrapper = ({ children }: React.PropsWithChildren) => <InventoryProvider>{children}</InventoryProvider>;
@@ -25,7 +33,12 @@ const productInput = (overrides: Partial<Parameters<ReturnType<typeof useInvento
   name: 'Oat Milk', category: 'Drinks', buyingPrice: 2, sellingPrice: 4, quantity: 8, minStockLevel: 2, ...overrides,
 });
 
-beforeEach(async () => { await AsyncStorage.clear(); jest.clearAllMocks(); });
+beforeEach(async () => {
+  await AsyncStorage.clear();
+  jest.clearAllMocks();
+  (require('expo-secure-store').__store as Map<string, string>).clear();
+  (global.fetch as jest.Mock).mockImplementation(() => Promise.reject(new Error('offline')));
+});
 
 test('empty first launch loads sample catalogue and becomes ready', async () => {
   const { result } = await setup();
@@ -154,8 +167,78 @@ test('backup restore merges incoming products and transactions', async () => {
   first.unmount(); fresh.unmount();
 });
 
-test('joinStoreSync rejects garbage and accepts a valid pairing payload', async () => {
+const serverProduct = {
+  id: 'srv-1', name: 'Server Phone', category: 'Phones', qrCode: 'STK-SERV-0001', buyingPrice: 100, sellingPrice: 150,
+  quantity: 4, openingQuantity: 4, minStockLevel: 1, deleted: false, updatedAt: '2026-10-01T00:00:00.000Z',
+};
+const json = (status: number, body: unknown) => Promise.resolve({ ok: status < 400, status, text: async () => JSON.stringify(body) });
+function fakeServer(opts: { loginStatus?: number; syncStatus?: number } = {}) {
+  const pushed: any[] = [];
+  (global.fetch as jest.Mock).mockImplementation((url: string, init: any) => {
+    if (url.endsWith('/auth/login')) {
+      return opts.loginStatus ? json(opts.loginStatus, { error: 'Email or password is wrong.' }) : json(200, { token: 'tok-1', email: 'owner@shop.test' });
+    }
+    if (url.endsWith('/sync')) {
+      if (opts.syncStatus) return json(opts.syncStatus, { error: 'Please sign in again.' });
+      pushed.push(JSON.parse(init.body));
+      return json(200, { cursor: 5, hasMore: false, products: [serverProduct], transactions: [], rejected: [] });
+    }
+    return json(404, { error: 'Not found' });
+  });
+  return pushed;
+}
+
+test('signing in drops sample data, stores the token securely and pulls the cloud catalogue', async () => {
+  const pushed = fakeServer();
   const { result } = await setup();
-  await act(async () => { await expect(result.current.joinStoreSync('garbage')).resolves.toMatchObject({ ok: false }); });
-  await act(async () => { await expect(result.current.joinStoreSync(`STOCKQR-SYNC:${'a'.repeat(26)}`)).resolves.toMatchObject({ ok: true }); });
+  expect(result.current.isSampleData).toBe(true);
+  await act(async () => { await result.current.signIn('Owner@Shop.test', 'correct horse 1'); });
+  await waitFor(() => expect(result.current.products.map(p => p.id)).toEqual(['srv-1']));
+  expect(result.current.account).toEqual({ email: 'owner@shop.test' });
+  expect(result.current.isSampleData).toBe(false);
+  expect(pushed.every(b => b.products.every((p: any) => !String(p.id).startsWith('prod-')))).toBe(true); // sample never uploaded
+  expect(require('expo-secure-store').__store.get('stockqr_api_token_v1')).toBe('tok-1');
+});
+
+test('signing in uploads real local data', async () => {
+  const pushed = fakeServer();
+  await AsyncStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify([{ ...serverProduct, id: 'local-1', name: 'Local Case', qrCode: 'STK-LOCA-0001', synced: true }]));
+  await AsyncStorage.setItem(STORAGE_KEYS.IS_SAMPLE_DATA, 'false');
+  const { result } = await setup();
+  await act(async () => { await result.current.signIn('owner@shop.test', 'correct horse 1'); });
+  await waitFor(() => expect(pushed.some(b => b.products.some((p: any) => p.id === 'local-1'))).toBe(true));
+  await waitFor(() => expect(result.current.products.map(p => p.id).sort()).toEqual(['local-1', 'srv-1']));
+  expect(pushed[0].products[0]).not.toHaveProperty('synced');
+});
+
+test('wrong password leaves the phone signed out', async () => {
+  fakeServer({ loginStatus: 401 });
+  const { result } = await setup();
+  await act(async () => { await expect(result.current.signIn('owner@shop.test', 'nope nope')).rejects.toThrow('Email or password is wrong.'); });
+  expect(result.current.account).toBeNull();
+});
+
+test('an expired sign-in signs the phone out without losing data', async () => {
+  fakeServer();
+  const { result } = await setup();
+  await act(async () => { await result.current.signIn('owner@shop.test', 'correct horse 1'); });
+  await waitFor(() => expect(result.current.products.length).toBe(1));
+  fakeServer({ syncStatus: 401 });
+  await act(async () => { await result.current.syncWithCloud(); });
+  expect(result.current.account).toBeNull();
+  expect(result.current.products.map(p => p.id)).toEqual(['srv-1']);
+});
+
+test('sample data cannot be loaded while signed in', async () => {
+  fakeServer();
+  const { result } = await setup();
+  await act(async () => { await result.current.signIn('owner@shop.test', 'correct horse 1'); });
+  await act(async () => { await expect(result.current.resetToDemoData()).rejects.toThrow(/Sign out first/); });
+});
+
+test('without an account the phone works on its own', async () => {
+  const { result } = await setup();
+  expect(result.current.account).toBeNull();
+  expect(result.current.syncMode).toBe('off');
+  await act(async () => { await expect(result.current.syncWithCloud()).resolves.toMatchObject({ ok: false }); });
 });

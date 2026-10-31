@@ -15,7 +15,7 @@ import {
   UserRole,
 } from '../types/inventory';
 import { INITIAL_PRODUCTS, INITIAL_TRANSACTIONS } from '../utils/seedData';
-import { resetSupabaseClient } from '../services/supabase';
+import { api, API_URL, clearSession, loadSession, saveSession, Session } from '../services/api';
 import {
   createInventoryWriter,
   parseStoredInventory,
@@ -41,10 +41,8 @@ import {
   mergeStates,
   newId,
   normalizeState,
-  parsePairingPayload,
   recomputeQuantities,
   sortTransactions,
-  syncCodeFromBytes,
 } from '../logic/inventoryLogic';
 
 export type { SyncMode } from '../sync/useSyncEngine';
@@ -104,7 +102,9 @@ export interface InventoryContextValue {
   currency: CurrencyCode;
   cloudConfig: CloudConfig;
   syncMode: SyncMode;
-  syncCode: string;
+  /** Signed-in cloud account, or null when this phone works on its own. */
+  account: { email: string } | null;
+  serverConfigured: boolean;
   isSyncing: boolean;
   lastSyncedAt: string | null;
   lastSyncError: string | null;
@@ -144,8 +144,10 @@ export interface InventoryContextValue {
   availableMonths: { key: string; label: string }[];
   updateCloudConfig: (config: CloudConfig) => Promise<void>;
   syncWithCloud: () => Promise<{ ok: boolean; message: string }>;
-  joinStoreSync: (codeOrPayload: string) => Promise<{ ok: boolean; message: string }>;
-  createNewSyncCode: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  createOwnerAccount: (setupKey: string, email: string, password: string) => Promise<void>;
+  signOut: (everywhere?: boolean) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   resetToDemoData: () => Promise<void>;
   startFreshStore: () => Promise<void>;
   makeBackup: () => BackupFile;
@@ -168,10 +170,6 @@ async function hashPin(pin: string): Promise<string> {
   return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `stockqr-pin:${pin.trim()}`);
 }
 
-function newSyncCode(): string {
-  return syncCodeFromBytes(Crypto.getRandomBytes(26));
-}
-
 function sampleState(): InventoryState {
   return normalizeState({ products: INITIAL_PRODUCTS, transactions: INITIAL_TRANSACTIONS });
 }
@@ -188,14 +186,9 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [pinLockedUntil, setPinLockedUntil] = useState(0);
   const failedPinAttempts = useRef(0);
   const [currency, setCurrencyState] = useState<CurrencyCode>(getCurrency());
-  const [cloudConfig, setCloudConfig] = useState<CloudConfig>({
-    supabaseUrl: '',
-    supabaseAnonKey: '',
-    autoSyncEnabled: true,
-  });
-  const [syncCode, setSyncCode] = useState('');
-  const deviceIdRef = useRef('');
-  const relayLastIdRef = useRef<string | null>(null);
+  const [cloudConfig, setCloudConfig] = useState<CloudConfig>({ autoSyncEnabled: true });
+  const [session, setSession] = useState<Session | null>(null);
+  const [initialCursor, setInitialCursor] = useState(0);
   const [isSampleData, setIsSampleData] = useState(false);
   const [isClientDemoLocked, setIsClientDemoLocked] = useState(DEFAULT_CLIENT_DEMO_LOCKED);
   const [demoActionsRemaining, setDemoActionsRemaining] = useState(DEMO_ACTION_LIMIT);
@@ -217,14 +210,19 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     [writeInventory]
   );
 
+  const onSessionExpired = useCallback(() => {
+    setSession(null);
+    clearSession().catch(() => {});
+  }, []);
+
   const sync = useSyncEngine({
     isReady,
-    cloudConfig,
-    syncCode,
-    deviceId: deviceIdRef,
-    relayLastId: relayLastIdRef,
+    session,
+    autoSync: cloudConfig.autoSyncEnabled,
+    initialCursor,
     stateRef,
     commit,
+    onSessionExpired,
   });
   scheduleSyncRef.current = sync.scheduleSync;
 
@@ -281,30 +279,18 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (values[STORAGE_KEYS.CLOUD_CONFIG]) {
           try {
             const cfg = JSON.parse(values[STORAGE_KEYS.CLOUD_CONFIG] as string);
-            setCloudConfig({
-              supabaseUrl: String(cfg.supabaseUrl || ''),
-              supabaseAnonKey: String(cfg.supabaseAnonKey || ''),
-              autoSyncEnabled: cfg.autoSyncEnabled !== false,
-            });
+            setCloudConfig({ autoSyncEnabled: cfg.autoSyncEnabled !== false });
           } catch {
             // keep defaults
           }
         }
 
-        let deviceId = values[STORAGE_KEYS.DEVICE_ID];
-        if (!deviceId) {
-          deviceId = `dev-${newSyncCode().slice(0, 12)}`;
-          await setValue(STORAGE_KEYS.DEVICE_ID, deviceId);
+        setInitialCursor(Number(values[STORAGE_KEYS.CLOUD_CURSOR]) || 0);
+        try {
+          setSession(await loadSession());
+        } catch {
+          setSession(null);
         }
-        deviceIdRef.current = deviceId;
-
-        let code = values[STORAGE_KEYS.SYNC_CODE];
-        if (!code) {
-          code = newSyncCode();
-          await setValue(STORAGE_KEYS.SYNC_CODE, code);
-        }
-        setSyncCode(code);
-        relayLastIdRef.current = values[STORAGE_KEYS.RELAY_LAST_ID] || null;
 
         if (values[STORAGE_KEYS.CLIENT_DEMO_LOCK] !== null) {
           setIsClientDemoLocked(values[STORAGE_KEYS.CLIENT_DEMO_LOCK] === 'true');
@@ -599,49 +585,74 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     [commit, role]
   );
 
-  // ---- pairing & cloud ---------------------------------------------------------------
+  // ---- cloud account ---------------------------------------------------------------
 
-  const joinStoreSync = useCallback(
-    async (codeOrPayload: string) => {
-      const code = parsePairingPayload(codeOrPayload);
-      if (!code) return { ok: false, message: 'That is not a valid store sync code.' };
-      if (code === syncCode) return { ok: true, message: 'This phone is already paired with that store.' };
-      await sync.resetRelayCursor();
-      setSyncCode(code);
-      await setValue(STORAGE_KEYS.SYNC_CODE, code);
-      // Everything on this phone gets shared with the store on the next sync
+  /**
+   * After signing in: sample data is dropped (never uploaded), real local data is
+   * marked for upload so the cloud gets everything this phone has.
+   */
+  const startSession = useCallback(
+    async (s: Session) => {
+      await saveSession(s);
       const cur = stateRef.current;
-      await commit(
-        {
-          products: cur.products.map((p) => ({ ...p, synced: false })),
-          transactions: cur.transactions.map((t) => ({ ...t, synced: false })),
-        },
-        { sync: false }
-      );
-      if (!cloudConfig.autoSyncEnabled) {
-        const cfg = { ...cloudConfig, autoSyncEnabled: true };
-        setCloudConfig(cfg);
-        await setValue(STORAGE_KEYS.CLOUD_CONFIG, JSON.stringify(cfg));
+      if (isSampleData) {
+        await commit({ products: [], transactions: [] }, { sync: false });
+        setIsSampleData(false);
+        await setValue(STORAGE_KEYS.IS_SAMPLE_DATA, 'false');
+      } else {
+        await commit(
+          {
+            products: cur.products.map((p) => ({ ...p, synced: false })),
+            transactions: cur.transactions.map((t) => ({ ...t, synced: false })),
+          },
+          { sync: false }
+        );
       }
-      return { ok: true, message: 'Paired. This phone now shares stock and sales with the store.' };
+      await sync.resetCursor();
+      setSession(s);
     },
-    [syncCode, cloudConfig, commit, sync]
+    [commit, isSampleData, sync]
   );
 
-  const createNewSyncCode = useCallback(async () => {
-    const code = newSyncCode();
-    await sync.resetRelayCursor();
-    setSyncCode(code);
-    await setValue(STORAGE_KEYS.SYNC_CODE, code);
-  }, [sync]);
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const res = await api.login(email.trim().toLowerCase(), password);
+      await startSession({ token: res.token, email: res.email });
+    },
+    [startSession]
+  );
+
+  const createOwnerAccount = useCallback(
+    async (setupKey: string, email: string, password: string) => {
+      const res = await api.setup(setupKey.trim(), email.trim().toLowerCase(), password);
+      await startSession({ token: res.token, email: res.email });
+    },
+    [startSession]
+  );
+
+  /** Signs this phone out. Its data stays on the phone. `everywhere` also signs out all other devices. */
+  const signOut = useCallback(
+    async (everywhere = false) => {
+      if (everywhere && session) await api.logoutAll(session.token);
+      await clearSession();
+      setSession(null);
+    },
+    [session]
+  );
+
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      if (!session) throw new Error('Not signed in.');
+      const res = await api.changePassword(session.token, currentPassword, newPassword);
+      const next = { token: res.token, email: session.email };
+      await saveSession(next);
+      setSession(next);
+    },
+    [session]
+  );
 
   const updateCloudConfig = useCallback(async (config: CloudConfig) => {
-    resetSupabaseClient();
-    const clean: CloudConfig = {
-      supabaseUrl: config.supabaseUrl.trim(),
-      supabaseAnonKey: config.supabaseAnonKey.trim(),
-      autoSyncEnabled: config.autoSyncEnabled,
-    };
+    const clean: CloudConfig = { autoSyncEnabled: config.autoSyncEnabled };
     setCloudConfig(clean);
     await setValue(STORAGE_KEYS.CLOUD_CONFIG, JSON.stringify(clean));
   }, []);
@@ -649,18 +660,19 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // ---- data management ----------------------------------------------------------------
 
   const resetToDemoData = useCallback(async () => {
+    if (session) throw new InventoryError('INVALID', 'Sign out first — sample data must never be uploaded to your cloud account.');
     await commit(sampleState(), { sync: false });
     setIsSampleData(true);
     await setValue(STORAGE_KEYS.IS_SAMPLE_DATA, 'true');
-  }, [commit]);
+  }, [commit, session]);
 
-  /** Clears the sample catalogue and starts an empty store with its own new sync code. */
+  /** Clears the sample catalogue so the owner can enter real products. */
   const startFreshStore = useCallback(async () => {
     await commit({ products: [], transactions: [] }, { sync: false });
     setIsSampleData(false);
     await setValue(STORAGE_KEYS.IS_SAMPLE_DATA, 'false');
-    await createNewSyncCode();
-  }, [commit, createNewSyncCode]);
+    if (session) await sync.resetCursor();
+  }, [commit, session, sync]);
 
   const makeBackup = useCallback(() => buildBackup(stateRef.current, APP_VERSION, getCurrency()), []);
 
@@ -747,7 +759,8 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     currency,
     cloudConfig,
     syncMode: sync.syncMode,
-    syncCode,
+    account: session ? { email: session.email } : null,
+    serverConfigured: Boolean(API_URL),
     isSyncing: sync.isSyncing,
     lastSyncedAt: sync.lastSyncedAt,
     lastSyncError: sync.lastSyncError,
@@ -777,8 +790,10 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     availableMonths,
     updateCloudConfig,
     syncWithCloud: sync.syncNow,
-    joinStoreSync,
-    createNewSyncCode,
+    signIn,
+    createOwnerAccount,
+    signOut,
+    changePassword,
     resetToDemoData,
     startFreshStore,
     makeBackup,

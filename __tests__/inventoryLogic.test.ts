@@ -72,11 +72,6 @@ describe('monthly summaries and CSV',()=>{
  test('CSV numeric cell is not quoted',()=>expect(L.csvCell(12.5)).toBe('12.5'));
 });
 
-describe('versions, pairing and sync codes',()=>{
+describe('versions',()=>{
  test.each([['v2.4.0','2.3.9',1],['1.0','1.0.0',0],['1.0','2',-1]] as const)('compareVersions %s %s',(a,b,n)=>expect(Math.sign(L.compareVersions(a,b))).toBe(n));
- test('builds pairing prefix',()=>expect(L.buildPairingPayload('abcdefghijklmnopqrst')).toBe('STOCKQR-SYNC:abcdefghijklmnopqrst'));
- test('parses pairing prefix case insensitively',()=>expect(L.parsePairingPayload('stockqr-sync:ABCDEFGHIJKLMNOPQRST')).toBe('abcdefghijklmnopqrst'));
- test('parses raw pairing code',()=>expect(L.parsePairingPayload('abcdefghijklmnopqrst')).toBe('abcdefghijklmnopqrst'));
- test.each(['short','!'.repeat(24),'STOCKQR-SYNC:no'])('rejects short or garbage pairing code',s=>expect(L.parsePairingPayload(s)).toBeNull());
- test('syncCodeFromBytes maps base36 digits',()=>expect(L.syncCodeFromBytes(new Uint8Array([0,1,9,10,35]))).toBe('019az'));
 });
