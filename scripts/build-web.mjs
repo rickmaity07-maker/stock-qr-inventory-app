@@ -23,6 +23,30 @@ console.log('› Exporting web bundle…');
 fs.rmSync(out, { recursive: true, force: true });
 execSync(`npx expo export --platform web --output-dir web-build`, { cwd: root, stdio: 'inherit' });
 
+// ---- move fonts out of "node_modules" -------------------------------------------
+// Expo puts icon fonts under assets/node_modules/…, but .gitignore skips every
+// node_modules folder, so they would never reach GitHub Pages. Move them to
+// assets/vendor/… and keep only the icon font the app actually uses.
+{
+  const from = path.join(out, 'assets', 'node_modules');
+  const to = path.join(out, 'assets', 'vendor');
+  if (fs.existsSync(from)) {
+    fs.renameSync(from, to);
+    const walk = (dir) =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+        e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]
+      );
+    for (const f of walk(to)) {
+      if (f.endsWith('.ttf') && !path.basename(f).startsWith('Ionicons')) fs.rmSync(f);
+    }
+    for (const f of walk(path.join(out, '_expo'))) {
+      if (!f.endsWith('.js')) continue;
+      const js = fs.readFileSync(f, 'utf8');
+      if (js.includes('/assets/node_modules/')) fs.writeFileSync(f, js.split('/assets/node_modules/').join('/assets/vendor/'));
+    }
+  }
+}
+
 // ---- icons -----------------------------------------------------------------
 const icons = ['apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'favicon.png'];
 fs.mkdirSync(path.join(out, 'icons'), { recursive: true });
@@ -163,9 +187,28 @@ if (!html.includes('viewport-fit=cover')) {
 }
 fs.writeFileSync(indexPath, html);
 
+// ---- safety: nothing may live under a node_modules path (it would not be committed) ----
+{
+  const bad = listFiles(out).filter((f) => f.split('/').includes('node_modules'));
+  if (bad.length) throw new Error(`Build output still has node_modules paths:\n${bad.join('\n')}`);
+  const fonts = listFiles(out).filter((f) => f.endsWith('.ttf'));
+  if (!fonts.some((f) => f.includes('Ionicons'))) throw new Error('Ionicons font missing from the web build.');
+}
+
 // ---- publish into docs/app ----------------------------------------------------------
 fs.rmSync(target, { recursive: true, force: true });
 fs.cpSync(out, target, { recursive: true });
 // GitHub Pages hides folders starting with _ (like _expo) unless the site root has .nojekyll
 fs.writeFileSync(path.join(root, 'docs', '.nojekyll'), '');
+// ---- every published file must be committable (a .gitignore rule once hid the icon font) ----
+{
+  const published = listFiles(target).map((f) => `docs/app/${f}`);
+  let ignored = '';
+  try {
+    ignored = execSync('git check-ignore --stdin', { cwd: root, input: published.join('\n') }).toString().trim();
+  } catch {
+    ignored = ''; // exit code 1 = nothing ignored
+  }
+  if (ignored) throw new Error(`These web files are git-ignored and would not be published:\n${ignored}`);
+}
 console.log(`✓ Web app built into docs/app (cache ${version}, ${files.length} files)`);

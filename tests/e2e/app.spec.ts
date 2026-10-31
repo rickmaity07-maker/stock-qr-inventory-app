@@ -36,6 +36,17 @@ test.describe('iPhone web app', () => {
     expect((await request.get(`${APP}sw.js`)).ok()).toBeTruthy();
   });
 
+  test('tab bar icon font loads', async ({ page }) => {
+    const fontResponses: number[] = [];
+    page.on('response', (r) => {
+      if (r.url().includes('Ionicons')) fontResponses.push(r.status());
+    });
+    await open(page);
+    await page.waitForFunction(() => (document as any).fonts.check('24px ionicons'));
+    expect(fontResponses).toContain(200);
+    expect(fontResponses.every((s) => s === 200)).toBeTruthy();
+  });
+
   test('selling lowers stock and cannot exceed what is in stock', async ({ page }) => {
     await open(page);
     await page.getByText(/Apple 20W USB-C Fast Power/).first().click();
