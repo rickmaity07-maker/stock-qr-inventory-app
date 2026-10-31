@@ -41,7 +41,8 @@ jobs:
 
   e2e:
     name: iPhone web app (end-to-end)
-    runs-on: ubuntu-latest
+    # Playwright 1.49 knows the WebKit system packages for 24.04 (not yet for 26.04)
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
