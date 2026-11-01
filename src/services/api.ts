@@ -97,6 +97,10 @@ export const api = {
     request<{ token: string; email: string }>('/auth/login', { body: { email, password } }),
   setup: (setupKey: string, email: string, password: string) =>
     request<{ token: string; email: string }>('/auth/setup', { body: { setupKey, email, password } }),
+  resetPassword: (setupKey: string, email: string, password: string) =>
+    request<{ token: string; email: string }>('/auth/reset', { body: { setupKey, email, password } }),
+  sendErrors: (token: string, reports: { message: string; stack?: string | null; appVersion?: string | null; platform?: string | null; context?: string | null; at?: string | null }[]) =>
+    request<{ ok: boolean }>('/errors', { token, body: { reports } }),
   me: (token: string) => request<{ email: string }>('/auth/me', { token }),
   changePassword: (token: string, currentPassword: string, newPassword: string) =>
     request<{ token: string }>('/auth/password', { token, body: { currentPassword, newPassword } }),

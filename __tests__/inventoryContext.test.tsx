@@ -178,6 +178,14 @@ function fakeServer(opts: { loginStatus?: number; syncStatus?: number } = {}) {
     if (url.endsWith('/auth/login')) {
       return opts.loginStatus ? json(opts.loginStatus, { error: 'Email or password is wrong.' }) : json(200, { token: 'tok-1', email: 'owner@shop.test' });
     }
+    if (url.endsWith('/auth/reset')) {
+      const body = JSON.parse(init.body);
+      return body.setupKey === 'KEY-1' ? json(200, { token: 'tok-reset', email: body.email }) : json(403, { error: 'Wrong setup key.' });
+    }
+    if (url.endsWith('/errors')) {
+      pushed.push({ errors: JSON.parse(init.body).reports, products: [], transactions: [] });
+      return json(200, { ok: true });
+    }
     if (url.endsWith('/sync')) {
       if (opts.syncStatus) return json(opts.syncStatus, { error: 'Please sign in again.' });
       pushed.push(JSON.parse(init.body));
@@ -241,4 +249,28 @@ test('without an account the phone works on its own', async () => {
   expect(result.current.account).toBeNull();
   expect(result.current.syncMode).toBe('off');
   await act(async () => { await expect(result.current.syncWithCloud()).resolves.toMatchObject({ ok: false }); });
+});
+
+test('forgot password: the setup key sets a new password and signs this phone in', async () => {
+  fakeServer();
+  const { result } = await setup();
+  await act(async () => { await expect(result.current.resetPassword('wrong', 'owner@shop.test', 'new password 9')).rejects.toThrow('Wrong setup key.'); });
+  expect(result.current.account).toBeNull();
+  await act(async () => { await result.current.resetPassword(' KEY-1 ', 'Owner@Shop.test', 'new password 9'); });
+  expect(result.current.account).toEqual({ email: 'owner@shop.test' });
+  expect(require('expo-secure-store').__store.get('stockqr_api_token_v1')).toBe('tok-reset');
+});
+
+test('crash reports saved while signed out are sent after signing in', async () => {
+  const { recordError, __resetCrashReportsForTests } = require('../src/services/crashReports');
+  __resetCrashReportsForTests();
+  const pushed = fakeServer();
+  const { result } = await setup();
+  await recordError(new Error('screen exploded'), 'screen crashed: ProductsScreen');
+  expect(JSON.parse((await AsyncStorage.getItem('@stockqr_error_queue_v7'))!)).toHaveLength(1);
+  await act(async () => { await result.current.signIn('owner@shop.test', 'correct horse 1'); });
+  await waitFor(() => expect(pushed.some(b => b.errors)).toBe(true));
+  const sent = pushed.find(b => b.errors).errors;
+  expect(sent[0]).toMatchObject({ message: 'screen exploded', context: 'screen crashed: ProductsScreen', appVersion: '2.5.0' });
+  await waitFor(async () => expect(JSON.parse((await AsyncStorage.getItem('@stockqr_error_queue_v7'))!)).toEqual([]));
 });

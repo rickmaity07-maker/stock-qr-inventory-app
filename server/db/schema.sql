@@ -73,3 +73,16 @@ select
 from products p
 left join transactions t on t.product_id = p.id
 group by p.id;
+
+-- Crash and error reports from the phones and the server (kept 90 days)
+create table if not exists error_reports (
+  id bigserial primary key,
+  at timestamptz not null default now(),
+  source text not null check (source in ('app', 'server')),
+  message text not null,
+  stack text,
+  app_version text,
+  platform text,
+  context text
+);
+create index if not exists error_reports_at on error_reports (at desc);

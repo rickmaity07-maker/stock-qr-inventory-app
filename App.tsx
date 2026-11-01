@@ -13,6 +13,9 @@ import { LoadingView, TabContext, TabKey } from './src/ui/nav';
 import { Field, Section, Sheet, haptic } from './src/ui/components';
 import { showAlert } from './src/ui/dialog';
 import { ErrorBoundary } from './src/ui/ErrorBoundary';
+import { installGlobalErrorHandlers } from './src/services/crashReports';
+
+installGlobalErrorHandlers();
 import { space, type, usePalette } from './src/ui/theme';
 
 const TABS: { key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap; iconOn: keyof typeof Ionicons.glyphMap }[] = [

@@ -1,7 +1,7 @@
 {
-  "version": "v2.6.1",
-  "releasedAt": "2026-11-01T00:30:00.000Z",
-  "notes": "v2.6.1: fixes the scanner reopening the same sale and freezing on iPhone. One sticker = one sale; move the phone away or tap the product to sell it again.",
+  "version": "v2.7.0",
+  "releasedAt": "2026-11-01T12:00:00.000Z",
+  "notes": "v2.7.0 is signed with the shop's own security key. ONE-TIME STEP: first check Settings shows 'Synced' (or make a backup), then uninstall this app, install the new one from the download, and sign in again. Your stock and sales come back from the cloud. Also new: Forgot password, and automatic crash reports.",
   "apkDownloadUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/latest/download/Stock-QR-Inventory.apk",
   "clientDemoApkUrl": "https://github.com/rickmaity07-maker/stock-qr-inventory-app/releases/latest/download/Stock-QR-Client-Demo-Locked.apk"
 }

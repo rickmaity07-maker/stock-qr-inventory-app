@@ -65,3 +65,19 @@ export const passwordChangeIn = z.object({
 
 export type ProductIn = z.infer<typeof productIn>;
 export type TransactionIn = z.infer<typeof transactionIn>;
+
+export const errorReportsIn = z.object({
+  reports: z
+    .array(
+      z.object({
+        message: z.string().min(1).max(4000),
+        stack: z.string().max(20000).optional().nullable(),
+        appVersion: z.string().max(40).optional().nullable(),
+        platform: z.string().max(40).optional().nullable(),
+        context: z.string().max(4000).optional().nullable(),
+        at: isoDateTime.optional().nullable(),
+      })
+    )
+    .min(1)
+    .max(20),
+});

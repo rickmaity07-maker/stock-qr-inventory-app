@@ -9,9 +9,14 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p .",
     "migrate": "tsx scripts/migrate.ts",
-    "set-password": "tsx scripts/set-password.ts"
+    "set-password": "tsx scripts/set-password.ts",
+    "backup": "tsx scripts/backup.ts",
+    "decrypt-backup": "tsx scripts/decrypt-backup.ts",
+    "errors": "tsx scripts/errors.ts"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
     "@neondatabase/serverless": "^1.0.0",

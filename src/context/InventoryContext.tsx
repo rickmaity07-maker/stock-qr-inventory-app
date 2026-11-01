@@ -27,6 +27,7 @@ import {
   STORAGE_KEYS,
 } from '../services/storage';
 import { BackupFile, buildBackup } from '../services/backup';
+import { flushErrorReports } from '../services/crashReports';
 import { SyncMode, useSyncEngine } from '../sync/useSyncEngine';
 import { CurrencyCode, getCurrency, isCurrencyCode, setCurrency as setCurrencyModule } from '../logic/money';
 import {
@@ -146,6 +147,8 @@ export interface InventoryContextValue {
   syncWithCloud: () => Promise<{ ok: boolean; message: string }>;
   signIn: (email: string, password: string) => Promise<void>;
   createOwnerAccount: (setupKey: string, email: string, password: string) => Promise<void>;
+  /** Forgotten password: sets a new one with the setup key and signs out every other device. */
+  resetPassword: (setupKey: string, email: string, newPassword: string) => Promise<void>;
   signOut: (everywhere?: boolean) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   resetToDemoData: () => Promise<void>;
@@ -630,6 +633,19 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     [startSession]
   );
 
+  const resetPassword = useCallback(
+    async (setupKey: string, email: string, newPassword: string) => {
+      const res = await api.resetPassword(setupKey.trim(), email.trim().toLowerCase(), newPassword);
+      await startSession({ token: res.token, email: res.email });
+    },
+    [startSession]
+  );
+
+  // Send any saved crash reports once signed in
+  useEffect(() => {
+    if (session) flushErrorReports().catch(() => {});
+  }, [session]);
+
   /** Signs this phone out. Its data stays on the phone. `everywhere` also signs out all other devices. */
   const signOut = useCallback(
     async (everywhere = false) => {
@@ -792,6 +808,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     syncWithCloud: sync.syncNow,
     signIn,
     createOwnerAccount,
+    resetPassword,
     signOut,
     changePassword,
     resetToDemoData,

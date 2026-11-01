@@ -76,6 +76,17 @@ jobs:
           ./gradlew assembleRelease -Pandroid.kotlinVersion=1.9.25 -x lint -x test --no-daemon
           cp app/build/outputs/apk/release/app-release.apk ../Stock-QR-Client-Demo-Locked.apk
 
+      # Show which key signed the APKs; refuse to publish a debug-signed build once our own key is set
+      - name: Check APK signature
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          for f in Stock-QR-Inventory.apk Stock-QR-Client-Demo-Locked.apk; do
+            "$APKSIGNER" verify --print-certs "$f" | tee cert.txt
+            if [ -n "$ANDROID_KEYSTORE_BASE64" ] && grep -qi "Android Debug" cert.txt; then
+              echo "::error::$f is signed with the debug key although a release key is set"; exit 1
+            fi
+          done
+
       - uses: actions/upload-artifact@v4
         with:
           name: Stock-QR-Inventory-APKs-v${{ steps.version.outputs.version }}
@@ -92,7 +103,7 @@ jobs:
           name: Stock QR v${{ steps.version.outputs.version }}
           make_latest: true
           body: |
-            **Stock-QR-Inventory.apk** — the full app. Install over the previous version; your data stays.
+            **Stock-QR-Inventory.apk** — the full app. Install over the previous version; your data stays. (Coming from 2.6.x or older: uninstall the old app first, then sign in again. The app is now signed with the shop's own key.)
             **Stock-QR-Client-Demo-Locked.apk** — locked preview for showing clients (3 demo scans, editing/printing/export locked).
 
             iPhone: open https://rickmaity07-maker.github.io/stock-qr-inventory-app/app/ in Safari → Share → Add to Home Screen.

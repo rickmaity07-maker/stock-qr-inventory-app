@@ -5,6 +5,7 @@
  *   GET  /api/auth/status               { hasOwner }
  *   POST /api/auth/setup                first-time owner account (needs SETUP_KEY)
  *   POST /api/auth/login                → { token, email }
+ *   POST /api/auth/reset                forgotten password: new password with the SETUP_KEY
  *   GET  /api/auth/me
  *   POST /api/auth/password             change password (signs out other devices)
  *   POST /api/auth/logout-all
@@ -14,6 +15,7 @@
  *   GET  /api/reports/monthly?month=YYYY-MM&tz=Europe/Berlin
  *   GET  /api/reports/stock
  *   GET  /api/export                    full backup (same format as the app's backup file)
+ *   POST /api/errors                    crash reports from the app;  GET /api/errors  latest reports
  */
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -35,7 +37,8 @@ import {
   tooManyAttempts,
   verifyToken,
 } from './auth.js';
-import { credentials, passwordChangeIn, setupIn, syncIn } from './validation.js';
+import { credentials, errorReportsIn, passwordChangeIn, setupIn, syncIn } from './validation.js';
+import { listErrorReports, saveErrorReports } from './errors.js';
 import { sync } from './sync.js';
 import { exportAll, getProduct, listProducts, listTransactions, monthlyReport, stockReport } from './reports.js';
 
@@ -69,6 +72,10 @@ export function createApp(db: Db, config: AppConfig) {
     if (err instanceof ZodError) return c.json({ error: err.issues[0]?.message ?? 'Invalid request' }, 400);
     if (err instanceof SyntaxError) return c.json({ error: 'Invalid JSON' }, 400);
     console.error(err);
+    // Keep a copy for the developer; never let reporting break the response
+    saveErrorReports(db, [
+      { source: 'server', message: String((err as Error)?.message || err), stack: (err as Error)?.stack ?? null, context: `${c.req.method} ${c.req.path}` },
+    ]).catch(() => {});
     return c.json({ error: 'Server error' }, 500);
   });
   app.notFound((c) => c.json({ error: 'Not found' }, 404));
@@ -113,6 +120,22 @@ export function createApp(db: Db, config: AppConfig) {
     return c.json({ token: await issueToken(config.jwtSecret, owner.token_version), email: owner.email });
   });
 
+  // Forgotten password: the setup key proves it is the owner. Signs out every device.
+  app.post('/auth/reset', async (c) => {
+    const body = setupIn.parse(await c.req.json());
+    const key = clientKey(c);
+    if (await tooManyAttempts(db, key)) throw new HTTPException(429, { message: 'Too many attempts. Try again in 15 minutes.' });
+    if (!config.setupKey || !safeEqual(body.setupKey.trim().toUpperCase(), config.setupKey.toUpperCase())) {
+      await recordFailure(db, key);
+      throw new HTTPException(403, { message: 'Wrong setup key.' });
+    }
+    if (!(await getOwner(db))) throw new HTTPException(404, { message: 'There is no account yet. Create one instead.' });
+    await clearFailures(db, key);
+    await setPassword(db, body.email, body.password);
+    const owner = (await getOwner(db)) as OwnerRow;
+    return c.json({ token: await issueToken(config.jwtSecret, owner.token_version), email: owner.email });
+  });
+
   // ---- signed in -------------------------------------------------------------
 
   const requireOwner = async (c: any, next: () => Promise<void>) => {
@@ -133,6 +156,7 @@ export function createApp(db: Db, config: AppConfig) {
   app.use('/transactions', requireOwner);
   app.use('/reports/*', requireOwner);
   app.use('/export', requireOwner);
+  app.use('/errors', requireOwner);
 
   app.get('/auth/me', (c) => c.json({ email: c.get('owner').email }));
 
@@ -188,6 +212,17 @@ export function createApp(db: Db, config: AppConfig) {
   app.get('/export', async (c) => {
     c.header('Content-Disposition', `attachment; filename="StockQR-server-backup-${new Date().toISOString().slice(0, 10)}.json"`);
     return c.json(await exportAll(db));
+  });
+
+  app.post('/errors', async (c) => {
+    const body = errorReportsIn.parse(await c.req.json());
+    await saveErrorReports(db, body.reports.map((r) => ({ ...r, source: 'app' as const })));
+    return c.json({ ok: true, saved: body.reports.length });
+  });
+
+  app.get('/errors', async (c) => {
+    const limit = Math.min(500, Math.max(1, Number(c.req.query('limit') || 50)));
+    return c.json(await listErrorReports(db, limit));
   });
 
   return app;

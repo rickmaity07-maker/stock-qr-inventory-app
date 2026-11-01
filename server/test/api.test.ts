@@ -333,3 +333,62 @@ describe('reports & export', () => {
     expect(r.body.transactions).toHaveLength(1);
   });
 });
+
+describe('forgotten password', () => {
+  it('resets with the setup key, signs out old devices, and the new password works', async () => {
+    const oldToken = await setupOwner();
+    const r = await call('POST', '/auth/reset', { setupKey: SETUP_KEY.toLowerCase(), email: 'owner@shop.test', password: 'brand new pass 2' });
+    expect(r.status).toBe(200);
+    expect(r.body.token).toBeTruthy();
+    expect((await call('GET', '/auth/me', undefined, oldToken)).status).toBe(401);
+    expect((await call('GET', '/auth/me', undefined, r.body.token)).status).toBe(200);
+    expect((await call('POST', '/auth/login', { email: 'owner@shop.test', password: 'correct horse 1' })).status).toBe(401);
+    expect((await call('POST', '/auth/login', { email: 'owner@shop.test', password: 'brand new pass 2' })).status).toBe(200);
+  });
+
+  it('refuses a wrong setup key and rate limits guessing', async () => {
+    await setupOwner();
+    const bad = { setupKey: 'WRONG', email: 'owner@shop.test', password: 'brand new pass 2' };
+    expect((await call('POST', '/auth/reset', bad)).status).toBe(403);
+    for (let i = 0; i < 8; i++) await call('POST', '/auth/reset', bad);
+    expect((await call('POST', '/auth/reset', { ...bad, setupKey: SETUP_KEY })).status).toBe(429);
+    expect((await call('POST', '/auth/login', { email: 'owner@shop.test', password: 'correct horse 1' })).status).toBe(429);
+  });
+
+  it('says so when there is no account yet', async () => {
+    const r = await call('POST', '/auth/reset', { setupKey: SETUP_KEY, email: 'owner@shop.test', password: 'brand new pass 2' });
+    expect(r.status).toBe(404);
+  });
+});
+
+describe('error reports', () => {
+  it('need sign-in, are stored, and can be listed newest first', async () => {
+    const reports = { reports: [{ message: 'first' }, { message: 'second', stack: 'at x', appVersion: '2.7.0', platform: 'ios' }] };
+    expect((await call('POST', '/errors', reports)).status).toBe(401);
+    const token = await setupOwner();
+    const r = await call('POST', '/errors', reports, token);
+    expect(r.status).toBe(200);
+    const list = await call('GET', '/errors', undefined, token);
+    expect(list.body.map((e: any) => e.message)).toEqual(['second', 'first']);
+    expect(list.body[0]).toMatchObject({ source: 'app', appVersion: '2.7.0', platform: 'ios', stack: 'at x' });
+  });
+
+  it('rejects oversized batches', async () => {
+    const token = await setupOwner();
+    const reports = { reports: Array.from({ length: 21 }, (_, i) => ({ message: `e${i}` })) };
+    expect((await call('POST', '/errors', reports, token)).status).toBe(400);
+  });
+
+  it('server crashes are recorded too', async () => {
+    const token = await setupOwner();
+    const broken = createApp(
+      { query: async (text: string, params?: unknown[]) => { if (text.startsWith('select * from products')) throw new Error('db exploded'); return db.query(text, params); } },
+      { jwtSecret: SECRET, setupKey: SETUP_KEY, allowedOrigins: [ORIGIN] }
+    );
+    const res = await broken.request('/api/export', { headers: { Authorization: `Bearer ${token}` } });
+    expect(res.status).toBe(500);
+    await new Promise((r) => setTimeout(r, 50));
+    const list = await call('GET', '/errors', undefined, token);
+    expect(list.body[0]).toMatchObject({ source: 'server', message: 'db exploded', context: 'GET /api/export' });
+  });
+});

@@ -14,7 +14,13 @@ import { space, usePalette } from '../ui/theme';
 
 const CLIENT_DEMO_WEB_URL = 'https://rickmaity07-maker.github.io/stock-qr-inventory-app/client-demo.html';
 
-type AuthMode = 'signin' | 'create';
+type AuthMode = 'signin' | 'create' | 'reset';
+
+const AUTH_TITLES: Record<AuthMode, { title: string; action: string }> = {
+  signin: { title: 'Sign in', action: 'Sign in' },
+  create: { title: 'Create owner account', action: 'Create account' },
+  reset: { title: 'Reset password', action: 'Set new password' },
+};
 
 export default function SettingsScreen() {
   const c = usePalette();
@@ -58,13 +64,14 @@ export default function SettingsScreen() {
       setAuthError('Enter your email and a password of at least 8 characters.');
       return;
     }
-    if (authMode === 'create' && !setupKey.trim()) {
+    if (authMode !== 'signin' && !setupKey.trim()) {
       setAuthError('Enter the setup key you were given.');
       return;
     }
     setAuthBusy(true);
     try {
       if (authMode === 'create') await inv.createOwnerAccount(setupKey, email, password);
+      else if (authMode === 'reset') await inv.resetPassword(setupKey, email, password);
       else await inv.signIn(email, password);
       setAuthMode(null);
       setPassword('');
@@ -328,40 +335,66 @@ export default function SettingsScreen() {
       {/* Sign in / create account */}
       <Sheet
         visible={Boolean(authMode)}
-        title={authMode === 'create' ? 'Create owner account' : 'Sign in'}
+        title={AUTH_TITLES[authMode ?? 'signin'].title}
         onClose={() => setAuthMode(null)}
-        action={{ label: authMode === 'create' ? 'Create' : 'Sign in', onPress: submitAuth, loading: authBusy }}
+        action={{ label: authMode === 'create' ? 'Create' : authMode === 'reset' ? 'Save' : 'Sign in', onPress: submitAuth, loading: authBusy }}
       >
         <Section
           footer={
             authMode === 'create'
               ? 'First time only: this creates the one owner account for your shop. You need the setup key from your developer.'
+              : authMode === 'reset'
+              ? 'Enter the setup key you used to create the account and choose a new password. Every other phone will need to sign in again. Your stock and sales are not affected.'
               : isSampleData
               ? 'The sample products on this phone are removed when you sign in.'
               : 'Products and sales already on this phone are uploaded to your account.'
           }
         >
-          {authMode === 'create' ? (
+          {authMode === 'create' || authMode === 'reset' ? (
             <Field label="Setup key" value={setupKey} onChangeText={setSetupKey} autoCapitalize="characters" autoCorrect={false} placeholder="XXXXXXXX-XXXXXXXX" />
           ) : null}
           <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" autoComplete="email" />
           <Field
-            label="Password"
+            label={authMode === 'reset' ? 'New password' : 'Password'}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
-            textContentType={authMode === 'create' ? 'newPassword' : 'password'}
-            autoComplete={authMode === 'create' ? 'new-password' : 'current-password'}
-            hint={authMode === 'create' ? 'At least 8 characters' : undefined}
+            textContentType={authMode === 'signin' ? 'password' : 'newPassword'}
+            autoComplete={authMode === 'signin' ? 'current-password' : 'new-password'}
+            hint={authMode === 'signin' ? undefined : 'At least 8 characters'}
             onSubmitEditing={submitAuth}
           />
         </Section>
         {authError ? <Notice tone="red" icon="alert-circle-outline" title={authError} /> : null}
         <View style={{ padding: space.lg }}>
-          <Button title={authMode === 'create' ? 'Create account' : 'Sign in'} onPress={submitAuth} loading={authBusy} />
+          <Button title={AUTH_TITLES[authMode ?? 'signin'].action} onPress={submitAuth} loading={authBusy} />
           {authMode === 'signin' ? (
-            <Button title="First time? Create the owner account" variant="plain" size="medium" onPress={() => setAuthMode('create')} style={{ marginTop: space.sm }} />
-          ) : null}
+            <>
+              <Button
+                title="Forgot password?"
+                variant="plain"
+                size="medium"
+                onPress={() => {
+                  setAuthError(null);
+                  setPassword('');
+                  setAuthMode('reset');
+                }}
+                style={{ marginTop: space.sm }}
+              />
+              <Button title="First time? Create the owner account" variant="plain" size="medium" onPress={() => setAuthMode('create')} />
+            </>
+          ) : (
+            <Button
+              title="Back to sign in"
+              variant="plain"
+              size="medium"
+              onPress={() => {
+                setAuthError(null);
+                setAuthMode('signin');
+              }}
+              style={{ marginTop: space.sm }}
+            />
+          )}
         </View>
       </Sheet>
 

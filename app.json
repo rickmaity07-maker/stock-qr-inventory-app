@@ -2,14 +2,14 @@
   "expo": {
     "name": "Stock & QR Inventory",
     "slug": "stock-qr-inventory-app",
-    "version": "2.6.1",
+    "version": "2.7.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "primaryColor": "#007AFF",
     "android": {
       "package": "com.stockqr.inventory",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#007AFF"

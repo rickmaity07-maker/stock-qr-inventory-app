@@ -195,4 +195,35 @@ test.describe('iPhone web app', () => {
     await expect(page.getByText(/iPhone 16 Pro Max/)).toHaveCount(0); // sample data removed, never uploaded
     expect(pushed.every((b) => b.products.every((p: any) => !String(p.id).startsWith('prod-')))).toBe(true);
   });
+
+  test('forgot password: the setup key sets a new password and signs in', async ({ page }) => {
+    let resetBody: any = null;
+    await page.route(/ntfy\.sh|githubusercontent\.com|jsdelivr\.net/, (r) => r.abort());
+    await page.route(/stock-qr-api\.vercel\.app\/api\/(.*)/, async (route) => {
+      const url = route.request().url();
+      const reply = (body: unknown, status = 200) =>
+        route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body), headers: { 'access-control-allow-origin': '*' } });
+      if (url.endsWith('/auth/status')) return reply({ hasOwner: true });
+      if (url.endsWith('/auth/reset')) {
+        resetBody = JSON.parse(route.request().postData() || '{}');
+        return resetBody.setupKey === 'GOOD-KEY' ? reply({ token: 'tok', email: resetBody.email }) : reply({ error: 'Wrong setup key.' }, 403);
+      }
+      if (url.endsWith('/sync')) return reply({ cursor: 1, hasMore: false, rejected: [], transactions: [], products: [] });
+      return reply({ error: 'Not found' }, 404);
+    });
+    await page.goto(APP);
+    await page.getByRole('tab', { name: 'Settings' }).click();
+    await page.getByText('Sign in', { exact: true }).first().click();
+    await page.getByRole('button', { name: 'Forgot password?' }).click();
+    await expect(page.getByText('Reset password').first()).toBeVisible();
+    await page.getByLabel('Setup key', { exact: true }).fill('bad');
+    await page.getByLabel('Email', { exact: true }).fill('owner@shop.test');
+    await page.getByLabel('New password', { exact: true }).fill('fresh password 1');
+    await page.getByRole('button', { name: 'Set new password' }).click();
+    await expect(page.getByText('Wrong setup key.')).toBeVisible();
+    await page.getByLabel('Setup key', { exact: true }).fill('GOOD-KEY');
+    await page.getByRole('button', { name: 'Set new password' }).click();
+    await expect(page.getByText('owner@shop.test')).toBeVisible();
+    expect(resetBody).toMatchObject({ email: 'owner@shop.test', password: 'fresh password 1' });
+  });
 });
